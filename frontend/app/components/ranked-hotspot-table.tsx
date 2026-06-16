@@ -50,7 +50,7 @@ export function RankedHotspotTable({
                 <td>{hotspot.grid_cell_id}</td>
                 <td>{hotspot.dominant_station ?? "Unknown"}</td>
                 <td>{hotspot.obstruction_risk_score.toFixed(1)}</td>
-                <td>{hotspot.violation_count.toLocaleString()}</td>
+                <td>{hotspot.violation_count.toLocaleString("en-IN")}</td>
                 <td>
                   <span className={`confidence ${hotspot.confidence.toLowerCase()}`}>
                     {hotspot.confidence}

@@ -102,13 +102,13 @@ export function HotspotDetailPanel({ hotspot }: HotspotDetailPanelProps) {
         </div>
         <div>
           <dt>Violation count</dt>
-          <dd>{hotspot.violation_count.toLocaleString()}</dd>
+          <dd>{hotspot.violation_count.toLocaleString("en-IN")}</dd>
         </div>
         <div>
           <dt>Active days / weeks</dt>
           <dd>
-            {hotspot.active_days.toLocaleString()} days /{" "}
-            {hotspot.active_weeks.toLocaleString()} weeks
+            {hotspot.active_days.toLocaleString("en-IN")} days /{" "}
+            {hotspot.active_weeks.toLocaleString("en-IN")} weeks
           </dd>
         </div>
         <div>

@@ -32,7 +32,7 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
             Holdout MAPE
           </span>
           <span>
-            <strong>{forecast.holdout.evaluated_points.toLocaleString()}</strong>
+            <strong>{forecast.holdout.evaluated_points.toLocaleString("en-IN")}</strong>
             Evaluation points
           </span>
         </div>

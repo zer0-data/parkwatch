@@ -36,7 +36,7 @@ export function DashboardShell({
   heatmap,
   forecast
 }: DashboardShellProps) {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "forecast">("dashboard");
+  const [activeTab, setActiveTab] = useState<"overview" | "map" | "forecast">("overview");
   const [stationFilter, setStationFilter] = useState("All stations");
   const [confidenceFilter, setConfidenceFilter] = useState("All confidence");
   const [selectedCellId, setSelectedCellId] = useState<string | null>(
@@ -94,8 +94,8 @@ export function DashboardShell({
           </p>
         </div>
         <div className="hero-facts" aria-label="Dataset summary">
-          <span>{summary.hotspot_count.toLocaleString()} grid hotspots</span>
-          <span>{summary.edge_count.toLocaleString()} spatial edges</span>
+          <span>{summary.hotspot_count.toLocaleString("en-IN")} grid hotspots</span>
+          <span>{summary.edge_count.toLocaleString("en-IN")} spatial edges</span>
           <span>{summary.metadata.timezone ?? "Asia/Kolkata"}</span>
         </div>
       </section>
@@ -104,11 +104,18 @@ export function DashboardShell({
 
       <section className="tab-bar" aria-label="Dashboard tabs">
         <button
-          className={activeTab === "dashboard" ? "active" : ""}
+          className={activeTab === "overview" ? "active" : ""}
           type="button"
-          onClick={() => setActiveTab("dashboard")}
+          onClick={() => setActiveTab("overview")}
         >
-          Dashboard
+          Overview
+        </button>
+        <button
+          className={activeTab === "map" ? "active" : ""}
+          type="button"
+          onClick={() => setActiveTab("map")}
+        >
+          Spatial Map
         </button>
         <button
           className={activeTab === "forecast" ? "active" : ""}
@@ -119,58 +126,62 @@ export function DashboardShell({
         </button>
       </section>
 
-      {activeTab === "forecast" ? (
-        <ForecastPanel forecast={forecast} />
-      ) : (
-        <>
+      {activeTab === "forecast" && <ForecastPanel forecast={forecast} />}
 
-      <section className="filter-panel" aria-label="Dashboard filters">
-        <label>
-          <span>Police station</span>
-          <select
-            value={stationFilter}
-            onChange={(event) => setStationFilter(event.target.value)}
-          >
-            {stationOptions.map((station) => (
-              <option key={station} value={station}>
-                {station}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span>Confidence</span>
-          <select
-            value={confidenceFilter}
-            onChange={(event) => setConfidenceFilter(event.target.value)}
-          >
-            <option>All confidence</option>
-            <option>High</option>
-            <option>Medium</option>
-            <option>Low</option>
-          </select>
-        </label>
-        <strong>{filteredHotspots.length.toLocaleString()} matching hotspots</strong>
-      </section>
+      {(activeTab === "overview" || activeTab === "map") && (
+        <section className="filter-panel" aria-label="Dashboard filters">
+          <label>
+            <span>Police station</span>
+            <select
+              value={stationFilter}
+              onChange={(event) => setStationFilter(event.target.value)}
+            >
+              {stationOptions.map((station) => (
+                <option key={station} value={station}>
+                  {station}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Confidence</span>
+            <select
+              value={confidenceFilter}
+              onChange={(event) => setConfidenceFilter(event.target.value)}
+            >
+              <option>All confidence</option>
+              <option>High</option>
+              <option>Medium</option>
+              <option>Low</option>
+            </select>
+          </label>
+          <strong>{filteredHotspots.length.toLocaleString("en-IN")} matching hotspots</strong>
+        </section>
+      )}
 
-      <section className="dashboard-grid">
-        <HotspotMap
-          hotspots={filteredHotspots}
-          selectedCellId={selectedCellId}
-          onSelect={setSelectedCellId}
-        />
-        <HotspotDetailPanel hotspot={selectedHotspot} />
-      </section>
+      {activeTab === "map" && (
+        <section className="dashboard-grid">
+          <HotspotMap
+            hotspots={filteredHotspots}
+            selectedCellId={selectedCellId}
+            onSelect={setSelectedCellId}
+          />
+          <HotspotDetailPanel hotspot={selectedHotspot} />
+        </section>
+      )}
 
-      <section className="dashboard-grid lower-grid">
-        <RankedHotspotTable
-          hotspots={filteredHotspots}
-          selectedCellId={selectedCellId}
-          onSelect={setSelectedCellId}
-        />
-        <TemporalHeatmap hourly={hourly} weekday={weekday} heatmap={heatmap} />
-      </section>
-        </>
+      {activeTab === "overview" && (
+        <section className="dashboard-grid lower-grid">
+          <RankedHotspotTable
+            hotspots={filteredHotspots}
+            selectedCellId={selectedCellId}
+            onSelect={setSelectedCellId}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+            <HotspotDetailPanel hotspot={selectedHotspot} />
+            <TemporalHeatmap hourly={hourly} weekday={weekday} heatmap={heatmap} />
+          </div>
+        </section>
       )}
     </main>
   );

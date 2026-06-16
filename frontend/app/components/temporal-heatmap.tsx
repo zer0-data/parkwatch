@@ -30,7 +30,7 @@ export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapPro
           <span
             key={item.hour}
             style={{ height: `${8 + (item.violation_count / maxHourly) * 72}px` }}
-            title={`${item.hour}:00 - ${item.violation_count.toLocaleString()} violations`}
+            title={`${item.hour}:00 - ${item.violation_count.toLocaleString("en-IN")} violations`}
           />
         ))}
       </div>
@@ -46,11 +46,11 @@ export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapPro
                 <i
                   key={hour}
                   style={{ opacity }}
-                  title={`${day} ${hour}:00 - ${count.toLocaleString()} violations`}
+                  title={`${day} ${hour}:00 - ${count.toLocaleString("en-IN")} violations`}
                 />
               );
             })}
-            <strong>{(weekdayTotals.get(day) ?? 0).toLocaleString()}</strong>
+            <strong>{(weekdayTotals.get(day) ?? 0).toLocaleString("en-IN")}</strong>
           </div>
         ))}
       </div>

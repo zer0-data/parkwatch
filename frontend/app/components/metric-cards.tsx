@@ -15,7 +15,7 @@ export function MetricCards({ summary, stations, hotspots }: MetricCardsProps) {
     <section className="metric-grid" aria-label="Key metrics">
       <article className="metric-card">
         <span>Total violations</span>
-        <strong>{summary.total_violations.toLocaleString()}</strong>
+        <strong>{summary.total_violations.toLocaleString("en-IN")}</strong>
         <small>Official CSV records aggregated into hotspot cells</small>
       </article>
       <article className="metric-card">
@@ -25,7 +25,7 @@ export function MetricCards({ summary, stations, hotspots }: MetricCardsProps) {
       </article>
       <article className="metric-card">
         <span>High confidence</span>
-        <strong>{highConfidence.toLocaleString()}</strong>
+        <strong>{highConfidence.toLocaleString("en-IN")}</strong>
         <small>Hotspots with repeated evidence and device-day support</small>
       </article>
       <article className="metric-card">

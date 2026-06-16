@@ -15,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <div className="noise-overlay"></div>
         <header className="app-header">
           <Link className="brand" href="/">
             <span className="brand-mark">PW</span>
@@ -24,7 +25,7 @@ export default function RootLayout({
             </span>
           </Link>
           <nav aria-label="Primary navigation">
-            <Link href="/">Dashboard</Link>
+            <Link className="nav-primary" href="/dashboard">Dashboard</Link>
             <Link href="/methodology">Methodology</Link>
           </nav>
         </header>
