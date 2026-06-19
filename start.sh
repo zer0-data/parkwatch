@@ -73,7 +73,7 @@ hr
 
 # Look for a CSV in data/
 CSV_FILE=""
-for f in data/parking_violations.csv data/parking_violations_sample.csv; do
+for f in data/parking_violations.csv data/parking_violations_sample.csv data/*.csv; do
   if [ -f "$f" ]; then
     CSV_FILE="$f"
     break
@@ -82,7 +82,7 @@ done
 
 if [ -z "$CSV_FILE" ]; then
   err "No parking violations CSV found in data/"
-  echo "    Expected: data/parking_violations.csv"
+  echo "    Expected any .csv file under data/"
   echo "    Please add your CSV file and re-run this script."
   exit 1
 fi
@@ -90,7 +90,15 @@ ok "Found data file: $CSV_FILE"
 
 # Check if processed JSON files exist
 PROCESSED_DIR="backend/app/data/processed"
-REQUIRED_FILES=("hotspots.json" "graph.json" "forecast.json" "temporal.json")
+REQUIRED_FILES=(
+  "metadata.json"
+  "hotspots.json"
+  "graph_edges.json"
+  "temporal.json"
+  "forecast.json"
+  "weekly_timeseries.json"
+  "cell_timeseries.json"
+)
 MISSING=0
 for f in "${REQUIRED_FILES[@]}"; do
   if [ ! -f "$PROCESSED_DIR/$f" ]; then
@@ -162,13 +170,23 @@ hr
 echo -e "${BOLD}Step 4 — Launching containers${NC}"
 hr
 
-info "Killing rogue host processes on port 8000 to prevent port conflicts..."
-sudo fuser -k 8000/tcp || true
+if command -v fuser &>/dev/null; then
+  info "Killing rogue host processes on port 8000 to prevent port conflicts..."
+  if [ "$(id -u)" -eq 0 ]; then
+    fuser -k 8000/tcp || true
+  elif command -v sudo &>/dev/null; then
+    sudo fuser -k 8000/tcp || true
+  else
+    warn "sudo not found; skipping host port cleanup."
+  fi
+else
+  warn "fuser not found; skipping host port cleanup."
+fi
 
 info "Bringing up docker stack..."
 echo ""
 
-$COMPOSE_CMD up -d
+$COMPOSE_CMD up -d --build
 
 echo ""
 ok "Containers launched"

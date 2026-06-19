@@ -15,7 +15,7 @@ services:
       - ./scripts:/app/scripts
       - ./data:/app/data
     working_dir: /app
-    command: command: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/api/health" ]
       interval: 30s
@@ -34,16 +34,12 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_BASE_URL=http://backend:8000
-      - NODE_ENV=development
+      - NODE_ENV=production
     depends_on:
       backend:
         condition: service_healthy
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-      - /app/.next
     working_dir: /app
-    command: npm run dev
+    command: npm run start
     networks:
       - parkwatch
 
@@ -55,6 +51,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx.docker.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
     depends_on:
       - backend
       - frontend
