@@ -15,6 +15,8 @@ import type {
 import { HotspotDetailPanel } from "./hotspot-detail-panel";
 import { HeatmapLayer } from "./heatmap-layer";
 import { ForecastPanel } from "./forecast-panel";
+import { ImpactScenarioPanel } from "./impact-scenario-panel";
+import { CompiledReportPanel } from "./compiled-report-panel";
 import { MetricCards } from "./metric-cards";
 import { RankedHotspotTable } from "./ranked-hotspot-table";
 import { TemporalHeatmap } from "./temporal-heatmap";
@@ -49,7 +51,9 @@ export function DashboardShell({
   heatmap,
   forecast
 }: DashboardShellProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "map" | "interactive" | "heatmap" | "forecast">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "map" | "interactive" | "heatmap" | "forecast" | "impact" | "report"
+  >("overview");
   const [stationFilter, setStationFilter] = useState("All stations");
   const [confidenceFilter, setConfidenceFilter] = useState("All confidence");
   const [violationTypeFilter, setViolationTypeFilter] = useState("All violations");
@@ -221,12 +225,14 @@ export function DashboardShell({
           <Tab value="interactive" label="Interactive Map" />
           <Tab value="heatmap" label="Heatmap View" />
           <Tab value="forecast" label="Forecast" />
+          <Tab value="impact" label="Impact Proxy" />
+          <Tab value="report" label="Report" />
         </Tabs>
       </Box>
 
       {activeTab === "forecast" && <ForecastPanel forecast={forecast} />}
 
-      {(activeTab === "overview" || activeTab === "map" || activeTab === "interactive" || activeTab === "heatmap") && (
+      {(activeTab === "overview" || activeTab === "map" || activeTab === "interactive" || activeTab === "heatmap" || activeTab === "impact" || activeTab === "report") && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4, alignItems: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Police station</InputLabel>
@@ -307,6 +313,19 @@ export function DashboardShell({
             {filteredHotspots.length.toLocaleString("en-IN")} matching hotspots
           </Typography>
         </Box>
+      )}
+
+      {activeTab === "impact" && (
+        <ImpactScenarioPanel hotspots={filteredHotspots} allHotspots={hotspots} />
+      )}
+      {activeTab === "report" && (
+        <CompiledReportPanel
+          summary={summary}
+          hotspots={filteredHotspots}
+          allHotspots={hotspots}
+          stations={stations}
+          forecast={forecast}
+        />
       )}
 
       {activeTab === "interactive" && (

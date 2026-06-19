@@ -10,6 +10,20 @@ type ForecastPanelProps = {
 
 export function ForecastPanel({ forecast }: ForecastPanelProps) {
   const topItem = forecast.items[0] ?? null;
+  const highConfidenceCount = forecast.items.filter((item) => item.confidence === "High").length;
+  const priorityCandidates = forecast.items.filter(
+    (item) => item.predicted_enforcement_priority >= 60 && item.confidence !== "Low"
+  ).length;
+  const averageIntervalWidth =
+    forecast.items.length > 0
+      ? forecast.items.reduce(
+          (sum, item) => sum + (item.prediction_interval_high - item.prediction_interval_low),
+          0
+        ) / forecast.items.length
+      : 0;
+  const risingForecasts = forecast.items.filter(
+    (item) => item.last_4_week_avg > 0 && item.last_1_week_count / item.last_4_week_avg >= 1.2
+  ).length;
   const exportForecastCsv = () => {
     const header = [
       "rank",
@@ -80,6 +94,24 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
             Evaluation points
           </span>
         </div>
+        <div className="forecast-metrics secondary">
+          <span>
+            <strong>{priorityCandidates.toLocaleString("en-IN")}</strong>
+            Forecast priority candidates
+          </span>
+          <span>
+            <strong>{highConfidenceCount.toLocaleString("en-IN")}</strong>
+            High-confidence forecasts
+          </span>
+          <span>
+            <strong>{averageIntervalWidth.toFixed(1)}</strong>
+            Avg interval width
+          </span>
+          <span>
+            <strong>{risingForecasts.toLocaleString("en-IN")}</strong>
+            Rising recent signals
+          </span>
+        </div>
       </div>
 
       <div className="panel forecast-chart-panel">
@@ -115,6 +147,7 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
                 <th>Predicted range</th>
                 <th>Priority</th>
                 <th>Stability</th>
+                <th>Recent signal</th>
                 <th>Reasons</th>
                 <th>Confidence</th>
               </tr>
@@ -136,6 +169,12 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
                   </td>
                   <td>{item.predicted_enforcement_priority.toFixed(1)}</td>
                   <td>{item.forecast_stability.toFixed(1)}</td>
+                  <td>
+                    {item.last_1_week_count.toFixed(0)} last week
+                    <span className="cell-meta">
+                      4-week avg {item.last_4_week_avg.toFixed(1)}
+                    </span>
+                  </td>
                   <td>
                     <div className="reason-list compact">
                       {item.forecast_reason_codes.slice(0, 3).map((reason) => (

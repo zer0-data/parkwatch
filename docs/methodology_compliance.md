@@ -142,6 +142,14 @@ graph-neighbor features.
   confidence, dominant violation type, peak weekday, and peak hour.
 - Exportable action list: the filtered enforcement-priority table can be exported
   as CSV for patrol planning and review.
+- Scenario impact proxy: the dashboard can model obstruction-exposure reduction
+  under conservative, moderate, and strong enforcement assumptions. This uses
+  official-CSV-derived exposure units combining violation volume, severity,
+  peak concentration, recurrence, and confidence. It is not measured congestion
+  reduction.
+- Compiled report: the dashboard can generate a deterministic local report from
+  loaded hotspot, forecast, station, and scenario-proxy data without an external
+  model API.
 - Score explanation on demand: clicking the score opens the formula contribution
   breakdown for the selected hotspot. This keeps methodology accessible without
   repeating long method text throughout the dashboard.
@@ -169,6 +177,9 @@ Further reasonable official-CSV-only upgrades include:
   against holdout observed violations instead of fixed score bands.
 - More granular temporal features: include month, weekday, hour, and interaction
   effects where enough observations exist.
+- Scenario calibration: estimate how alternative enforcement assumptions change
+  obstruction-exposure proxy units, while clearly avoiding measured congestion
+  or measured delay claims.
 
 These upgrades can make hotspot prioritization and future observed-violation
 forecasting more robust. They cannot support claims such as minutes saved, delay
