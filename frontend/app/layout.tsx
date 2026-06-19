@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import "./styles.css";
+import ThemeRegistry from "./ThemeRegistry";
 
 export const metadata: Metadata = {
   title: "ParkWatch",
@@ -30,7 +31,9 @@ export default function RootLayout({
             <Link href="/methodology">Methodology</Link>
           </nav>
         </header>
-        {children}
+        <ThemeRegistry>
+          {children}
+        </ThemeRegistry>
       </body>
     </html>
   );

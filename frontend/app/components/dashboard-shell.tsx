@@ -19,6 +19,7 @@ import { ForecastPanel } from "./forecast-panel";
 import { MetricCards } from "./metric-cards";
 import { RankedHotspotTable } from "./ranked-hotspot-table";
 import { TemporalHeatmap } from "./temporal-heatmap";
+import { Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem, Button, Typography } from "@mui/material";
 
 type DashboardShellProps = {
   summary: Summary;
@@ -204,115 +205,99 @@ export function DashboardShell({
 
       <MetricCards summary={summary} stations={stations} hotspots={filteredHotspots} />
 
-      <section className="tab-bar" aria-label="Dashboard tabs">
-        <button
-          className={activeTab === "overview" ? "active" : ""}
-          type="button"
-          onClick={() => setActiveTab("overview")}
-        >
-          Overview
-        </button>
-        <button
-          className={activeTab === "map" ? "active" : ""}
-          type="button"
-          onClick={() => setActiveTab("map")}
-        >
-          Scatter Map
-        </button>
-        <button
-          className={activeTab === "interactive" ? "active" : ""}
-          type="button"
-          onClick={() => setActiveTab("interactive")}
-        >
-          Interactive Map
-        </button>
-        <button
-          className={activeTab === "heatmap" ? "active" : ""}
-          type="button"
-          onClick={() => setActiveTab("heatmap")}
-        >
-          Heatmap View
-        </button>
-        <button
-          className={activeTab === "forecast" ? "active" : ""}
-          type="button"
-          onClick={() => setActiveTab("forecast")}
-        >
-          Forecast
-        </button>
-      </section>
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+        <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)} aria-label="Dashboard tabs">
+          <Tab value="overview" label="Overview" />
+          <Tab value="map" label="Scatter Map" />
+          <Tab value="interactive" label="Interactive Map" />
+          <Tab value="heatmap" label="Heatmap View" />
+          <Tab value="forecast" label="Forecast" />
+        </Tabs>
+      </Box>
 
       {activeTab === "forecast" && <ForecastPanel forecast={forecast} />}
 
       {(activeTab === "overview" || activeTab === "map" || activeTab === "interactive" || activeTab === "heatmap") && (
-        <section className="filter-panel" aria-label="Dashboard filters">
-          <label>
-            <span>Police station</span>
-            <select
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4, alignItems: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Police station</InputLabel>
+            <Select
               value={stationFilter}
+              label="Police station"
               onChange={(event) => setStationFilter(event.target.value)}
             >
               {stationOptions.map((station) => (
-                <option key={station} value={station}>
+                <MenuItem key={station} value={station}>
                   {station}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
-          <label>
-            <span>Confidence</span>
-            <select
+            </Select>
+          </FormControl>
+          
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Confidence</InputLabel>
+            <Select
               value={confidenceFilter}
+              label="Confidence"
               onChange={(event) => setConfidenceFilter(event.target.value)}
             >
-              <option>All confidence</option>
-              <option>High</option>
-              <option>Medium</option>
-              <option>Low</option>
-            </select>
-          </label>
-          <label>
-            <span>Violation type</span>
-            <select
+              <MenuItem value="All confidence">All confidence</MenuItem>
+              <MenuItem value="High">High</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="Low">Low</MenuItem>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Violation type</InputLabel>
+            <Select
               value={violationTypeFilter}
+              label="Violation type"
               onChange={(event) => setViolationTypeFilter(event.target.value)}
             >
               {violationTypeOptions.map((violationType) => (
-                <option key={violationType} value={violationType}>
+                <MenuItem key={violationType} value={violationType}>
                   {violationType}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
-          <label>
-            <span>Peak weekday</span>
-            <select
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Peak weekday</InputLabel>
+            <Select
               value={weekdayFilter}
+              label="Peak weekday"
               onChange={(event) => setWeekdayFilter(event.target.value)}
             >
               {weekdayOptions.map((weekdayName) => (
-                <option key={weekdayName} value={weekdayName}>
+                <MenuItem key={weekdayName} value={weekdayName}>
                   {weekdayName}
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
-          <label>
-            <span>Peak hour</span>
-            <select value={hourFilter} onChange={(event) => setHourFilter(event.target.value)}>
-              <option>All hours</option>
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Peak hour</InputLabel>
+            <Select value={hourFilter} label="Peak hour" onChange={(event) => setHourFilter(event.target.value)}>
+              <MenuItem value="All hours">All hours</MenuItem>
               {Array.from({ length: 24 }, (_, hour) => (
-                <option key={hour} value={hour}>
+                <MenuItem key={hour} value={hour}>
                   {hour.toString().padStart(2, "0")}:00
-                </option>
+                </MenuItem>
               ))}
-            </select>
-          </label>
-          <button className="export-button" type="button" onClick={exportPriorityCsv}>
+            </Select>
+          </FormControl>
+
+          <Button variant="outlined" color="primary" onClick={exportPriorityCsv}>
             Export CSV
-          </button>
-          <strong>{filteredHotspots.length.toLocaleString("en-IN")} matching hotspots</strong>
-        </section>
+          </Button>
+
+          <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600 }}>
+            {filteredHotspots.length.toLocaleString("en-IN")} matching hotspots
+          </Typography>
+        </Box>
       )}
 
       {activeTab === "interactive" && (
@@ -324,7 +309,7 @@ export function DashboardShell({
               onSelect={setSelectedCellId}
             />
           </div>
-          <HotspotDetailPanel hotspot={selectedHotspot} />
+          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} />
         </section>
       )}
 
@@ -337,7 +322,7 @@ export function DashboardShell({
               title="Risk Heatmap - Color Intensity Shows Risk"
             />
           </div>
-          <HotspotDetailPanel hotspot={selectedHotspot} />
+          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} />
         </section>
       )}
 
