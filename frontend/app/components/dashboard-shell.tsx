@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import type {
   HeatmapPoint,
@@ -12,14 +13,22 @@ import type {
   TemporalWeekday
 } from "../lib/types";
 import { HotspotDetailPanel } from "./hotspot-detail-panel";
-import { HotspotMap } from "./hotspot-map";
-import { InteractiveMap } from "./interactive-map";
 import { HeatmapLayer } from "./heatmap-layer";
 import { ForecastPanel } from "./forecast-panel";
 import { MetricCards } from "./metric-cards";
 import { RankedHotspotTable } from "./ranked-hotspot-table";
 import { TemporalHeatmap } from "./temporal-heatmap";
 import { Tabs, Tab, Box, FormControl, InputLabel, Select, MenuItem, Button, Typography } from "@mui/material";
+
+const HotspotMap = dynamic(
+  () => import("./hotspot-map").then((mod) => mod.HotspotMap),
+  { ssr: false }
+);
+
+const InteractiveMap = dynamic(
+  () => import("./interactive-map").then((mod) => mod.InteractiveMap),
+  { ssr: false }
+);
 
 type DashboardShellProps = {
   summary: Summary;
