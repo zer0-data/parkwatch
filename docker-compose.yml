@@ -5,7 +5,7 @@ services:
       dockerfile: ./Dockerfile.backend
     container_name: parkwatch-backend
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - PYTHONUNBUFFERED=1
       - LOG_LEVEL=info
@@ -14,9 +14,9 @@ services:
       - HF_MODEL=${HF_MODEL:-Qwen/Qwen2.5-3B-Instruct:cheapest}
       - HF_TIMEOUT_SECONDS=${HF_TIMEOUT_SECONDS:-8}
     volumes:
-      - ./backend:/app/backend
-      - ./scripts:/app/scripts
-      - ./data:/app/data
+      - ./backend:/app/backend:z
+      - ./scripts:/app/scripts:z
+      - ./data:/app/data:z
     working_dir: /app
     command: python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
     healthcheck:
@@ -36,6 +36,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      - BACKEND_URL=http://backend:8000
       - NEXT_PUBLIC_API_BASE_URL=http://backend:8000
       - NODE_ENV=production
     depends_on:
@@ -53,8 +54,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx.docker.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
+      - ./nginx.docker.conf:/etc/nginx/nginx.conf:ro,z
+      - ./ssl:/etc/nginx/ssl:ro,z
     depends_on:
       - backend
       - frontend

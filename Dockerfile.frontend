@@ -20,6 +20,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV BACKEND_URL=http://backend:8000
 ENV NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 
 # Copy package files
