@@ -137,7 +137,7 @@
         Beginner steps for sharing ParkWatch globally for free using Cloudflare Quick Tunnel.
         This path does not need a paid domain.
       </p>
-      <p class="small">Generated for the local project at /home/kabeerkhosla/Desktop/flipkart/parkwatch.</p>
+      <p class="small">Generated for the ParkWatch project folder.</p>
     </section>
 
     <h2>What This Gives You</h2>
@@ -163,7 +163,7 @@
 
     <h2>Step 1: Open The Project Folder</h2>
     <p>Open a terminal and run:</p>
-    <pre><code>cd /home/kabeerkhosla/Desktop/flipkart/parkwatch</code></pre>
+    <pre><code>cd /path/to/parkwatch</code></pre>
 
     <h2>Step 2: Start ParkWatch</h2>
     <p>Run ParkWatch in the background:</p>
@@ -184,7 +184,7 @@
     <pre><code>http://localhost:3000/dashboard</code></pre>
 
     <p>Also check the backend:</p>
-    <pre><code>curl http://localhost:8001/api/health</code></pre>
+    <pre><code>curl http://localhost:8000/api/health</code></pre>
 
     <p>Expected output:</p>
     <pre><code>{"status":"ok","data_ready":true}</code></pre>
@@ -222,7 +222,7 @@ sudo dpkg -i cloudflared-linux-amd64.deb</code></pre>
 
     <h2>Daily Start Commands</h2>
     <p>When you want to share ParkWatch again later:</p>
-    <pre><code>cd /home/kabeerkhosla/Desktop/flipkart/parkwatch
+    <pre><code>cd /path/to/parkwatch
 docker compose up -d --build
 cloudflared tunnel --url http://localhost:3000</code></pre>
 
@@ -231,20 +231,20 @@ cloudflared tunnel --url http://localhost:3000</code></pre>
     <h2>Stop Everything</h2>
     <p>Stop the Cloudflare tunnel with <code>Ctrl+C</code> in the tunnel terminal.</p>
     <p>Stop ParkWatch with:</p>
-    <pre><code>cd /home/kabeerkhosla/Desktop/flipkart/parkwatch
+    <pre><code>cd /path/to/parkwatch
 docker compose down</code></pre>
 
     <h2>Troubleshooting</h2>
     <h3>The Cloudflare URL opens but dashboard data does not load</h3>
     <pre><code>docker compose ps
-curl http://localhost:8001/api/health</code></pre>
+curl http://localhost:8000/api/health</code></pre>
     <p>If the backend is not healthy, restart:</p>
     <pre><code>docker compose down
 docker compose up -d --build</code></pre>
 
     <h3>Port 8000 is busy</h3>
-    <p>This project currently maps the backend to <code>8001</code> on your laptop because another container was using host networking. Use:</p>
-    <pre><code>curl http://localhost:8001/api/health</code></pre>
+    <p>This project maps the backend to <code>8000</code> by default. Use:</p>
+    <pre><code>curl http://localhost:8000/api/health</code></pre>
 
     <h3>Port 3000 is busy</h3>
     <p>Find what is using it:</p>

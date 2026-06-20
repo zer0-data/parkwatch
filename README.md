@@ -114,6 +114,24 @@ python scripts/preprocess_official_csv.py
 Generated backend JSON files are written to `backend/app/data/processed/` and
 are ignored by git.
 
+## Optional GraphSAGE Forecast
+
+ParkWatch can prefer a GraphSAGE forecast when
+`backend/app/data/processed/forecast_graphsage.json` exists. If that file is
+missing, the API falls back to the standard `forecast.json`.
+
+Generate the ML artifacts and train outside the runtime backend container:
+
+```powershell
+python scripts/preprocess_official_csv.py
+python scripts/export_ml_artifacts.py
+# Requires PyTorch + PyTorch Geometric, preferably in a separate ML/GPU env:
+python scripts/train_graphsage.py
+```
+
+The GraphSAGE forecast still predicts future observed parking violations. It
+does not prove measured congestion, measured delay, or congestion reduction.
+
 ## Backend Checks
 
 Run the backend smoke test after preprocessing:

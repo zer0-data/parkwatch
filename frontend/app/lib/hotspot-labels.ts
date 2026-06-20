@@ -21,7 +21,7 @@ export function hotspotName(hotspot: LabelSource) {
 
 export function hotspotContext(hotspot: LabelSource) {
   const station = hotspot.dominant_station ?? "Unknown station";
-  return `${station} · Cell ${hotspot.grid_cell_id}`;
+  return `${station} - Cell ${hotspot.grid_cell_id}`;
 }
 
 export function forecastHotspotName(item: ForecastLabelSource) {
@@ -35,7 +35,7 @@ export function forecastHotspotName(item: ForecastLabelSource) {
 
 export function forecastHotspotContext(item: ForecastLabelSource) {
   const station = item.station ?? "Unknown station";
-  return `${station} · Cell ${item.grid_cell_id}`;
+  return `${station} - Cell ${item.grid_cell_id}`;
 }
 
 function firstLocationKeyword(location: string | null) {

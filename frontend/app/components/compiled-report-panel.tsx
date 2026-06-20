@@ -155,7 +155,7 @@ function buildReportText({
     "Top forecast-priority zones:",
     ...topForecasts.map(
       (item, index) =>
-        `${index + 1}. ${item.location ?? item.junction ?? item.grid_cell_id} | ${item.station ?? "Unknown"} | predicted ${item.predicted_violation_count.toFixed(1)} (${item.prediction_interval_low.toFixed(1)}-${item.prediction_interval_high.toFixed(1)}) | priority ${item.predicted_enforcement_priority.toFixed(1)} | stability ${item.forecast_stability.toFixed(1)}`
+        `${index + 1}. ${item.location ?? item.junction ?? item.grid_cell_id} | ${item.station ?? "Unknown"} | predicted ${item.predicted_violation_count.toFixed(1)} (${item.prediction_interval_low.toFixed(1)}-${item.prediction_interval_high.toFixed(1)}) | priority ${(item.predicted_enforcement_priority ?? item.predicted_obstruction_risk).toFixed(1)} | stability ${item.forecast_stability.toFixed(1)}`
     ),
     "",
     "Scenario impact proxy:",

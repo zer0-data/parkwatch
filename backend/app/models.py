@@ -135,6 +135,8 @@ class ForecastItem(BaseModel):
 
 class ForecastResponse(BaseModel):
     forecast_type: str
+    model: str | None = None
+    forecast_source: str | None = None
     not_measured_congestion: bool
     method: str
     forecast_week: str | None = None

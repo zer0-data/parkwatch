@@ -5,13 +5,12 @@ export default function LandingPage() {
     <main className="landing-page">
       <section className="landing-hero">
         <div className="hero-content">
-          <p className="eyebrow">A new lens on parking obstruction risk</p>
-          <h1>Discover Bengaluru parking obstruction hotspots</h1>
+          <p className="eyebrow">AI-powered parking enforcement intelligence</p>
+          <h1>Plan targeted patrols for Bengaluru parking pressure.</h1>
           <p className="hero-subtitle">
-            ParkWatch analyzes official parking violation records to uncover spatial
-            clusters, temporal patterns, and simple forecasts of future observed
-            violations. It reports an Obstruction Risk Score and Congestion-Risk Proxy,
-            not measured congestion or measured delay.
+            ParkWatch turns official parking violation records into hotspot maps,
+            GraphSAGE forecasts, A*-optimized patrol sequences, and exportable action
+            reports for traffic enforcement teams.
           </p>
           <div className="hero-actions">
             <Link href="/dashboard" className="primary-button">
@@ -23,18 +22,18 @@ export default function LandingPage() {
         <div className="hero-features">
           <div className="feature-card">
             <div className="feature-icon">MAP</div>
-            <h3>Spatial Maps</h3>
-            <p>Interactive scatter views to explore granular grid cells across the city.</p>
+            <h3>Hotspot intelligence</h3>
+            <p>Interactive maps reveal repeated illegal-parking pressure zones.</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">TIME</div>
-            <h3>Temporal Trends</h3>
-            <p>Heatmaps and line charts revealing exactly when risks peak.</p>
+            <h3>Peak-window targeting</h3>
+            <p>Temporal heatmaps show when enforcement is most likely to matter.</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon">NEXT</div>
-            <h3>Baseline Forecasts</h3>
-            <p>Graph-enhanced baseline forecasts for future observed parking violations.</p>
+            <h3>Forecast patrol plans</h3>
+            <p>GraphSAGE forecasts feed an A* sequence for priority patrol stops.</p>
           </div>
         </div>
       </section>

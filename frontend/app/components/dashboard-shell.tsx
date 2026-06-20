@@ -33,6 +33,11 @@ const InteractiveMap = dynamic(
   { ssr: false }
 );
 
+const PatrolPlanner = dynamic(
+  () => import("./patrol-planner").then((mod) => mod.PatrolPlanner),
+  { ssr: false }
+);
+
 type DashboardShellProps = {
   summary: Summary;
   hotspots: Hotspot[];
@@ -53,7 +58,7 @@ export function DashboardShell({
   forecast
 }: DashboardShellProps) {
   const [activeTab, setActiveTab] = useState<
-    "overview" | "map" | "interactive" | "heatmap" | "forecast" | "impact" | "report"
+    "overview" | "map" | "interactive" | "heatmap" | "forecast" | "planner" | "impact" | "report"
   >("overview");
   const [stationFilter, setStationFilter] = useState("All stations");
   const [confidenceFilter, setConfidenceFilter] = useState("All confidence");
@@ -210,15 +215,15 @@ export function DashboardShell({
     <main className="page-shell">
       <section className="hero-band dashboard-hero">
         <div>
-          <p className="eyebrow">Bengaluru parking violations</p>
-          <h1>ParkWatch Dashboard</h1>
+          <p className="eyebrow">AI-powered parking enforcement intelligence</p>
+          <h1>ParkWatch Command Dashboard</h1>
           <p>
-            Explore hotspot patterns using the Obstruction Risk Score. This is a
-            Congestion-Risk Proxy from official parking violation records; the dataset
-            does not contain traffic speed or measured delay.
+            Detect parking-induced obstruction zones, forecast next-week pressure,
+            prioritize enforcement, and generate targeted patrol plans from official
+            Bengaluru parking violation records.
           </p>
           <Link className="explain-link hero-explain-link" href="/explainer">
-            What do these representations mean?
+            See the demo workflow
           </Link>
         </div>
         <div className="hero-facts" aria-label="Dataset summary">
@@ -237,6 +242,7 @@ export function DashboardShell({
           <Tab value="interactive" label="Interactive Map" />
           <Tab value="heatmap" label="Heatmap View" />
           <Tab value="forecast" label="Forecast" />
+          <Tab value="planner" label="Patrol Planner" />
           <Tab value="impact" label="Impact Proxy" />
           <Tab value="report" label="Report" />
         </Tabs>
@@ -244,7 +250,7 @@ export function DashboardShell({
 
       {activeTab === "forecast" && <ForecastPanel forecast={forecast} />}
 
-      {(activeTab === "overview" || activeTab === "map" || activeTab === "interactive" || activeTab === "heatmap" || activeTab === "impact" || activeTab === "report") && (
+      {(activeTab === "overview" || activeTab === "map" || activeTab === "interactive" || activeTab === "heatmap" || activeTab === "planner" || activeTab === "impact" || activeTab === "report") && (
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4, alignItems: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Police station</InputLabel>
@@ -329,6 +335,9 @@ export function DashboardShell({
 
       {activeTab === "impact" && (
         <ImpactScenarioPanel hotspots={filteredHotspots} allHotspots={hotspots} />
+      )}
+      {activeTab === "planner" && (
+        <PatrolPlanner hotspots={filteredHotspots} forecast={forecast} />
       )}
       {activeTab === "report" && (
         <CompiledReportPanel

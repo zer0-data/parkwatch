@@ -10,9 +10,10 @@ type ForecastPanelProps = {
 
 export function ForecastPanel({ forecast }: ForecastPanelProps) {
   const topItem = forecast.items[0] ?? null;
-  const highConfidenceCount = forecast.items.filter((item) => item.confidence === "High").length;
+  const modelLabel = forecast.model ? `${forecast.model} forecast` : "Graph-enhanced forecast";
+  const highConfidenceCount = forecast.items.filter((item) => displayConfidence(item) === "High").length;
   const priorityCandidates = forecast.items.filter(
-    (item) => item.predicted_enforcement_priority >= 60 && item.confidence !== "Low"
+    (item) => forecastPriority(item) >= 60 && displayConfidence(item) !== "Low"
   ).length;
   const averageIntervalWidth =
     forecast.items.length > 0
@@ -46,9 +47,9 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
       item.predicted_violation_count.toFixed(1),
       item.prediction_interval_low.toFixed(1),
       item.prediction_interval_high.toFixed(1),
-      item.predicted_enforcement_priority.toFixed(1),
+      forecastPriority(item).toFixed(1),
       item.forecast_stability.toFixed(1),
-      item.confidence,
+      displayConfidence(item),
       item.forecast_reason_codes.join("; ")
     ]);
     const csv = [header, ...rows]
@@ -67,11 +68,12 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
       <div className="panel forecast-intro">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Graph-enhanced forecast</p>
+            <p className="eyebrow">{modelLabel}</p>
             <h2>Next-week observed violation forecast</h2>
           </div>
           <div className="table-actions">
             <Link className="explain-link" href="/explainer">What does this mean?</Link>
+            {forecast.forecast_source && <span className="pill">{forecast.forecast_source}</span>}
             <span className="pill">{forecast.forecast_week ?? "Next week"}</span>
           </div>
         </div>
@@ -167,7 +169,7 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
                       center {item.predicted_violation_count.toFixed(1)}
                     </span>
                   </td>
-                  <td>{item.predicted_enforcement_priority.toFixed(1)}</td>
+                  <td>{forecastPriority(item).toFixed(1)}</td>
                   <td>{item.forecast_stability.toFixed(1)}</td>
                   <td>
                     {item.last_1_week_count.toFixed(0)} last week
@@ -183,8 +185,8 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
                     </div>
                   </td>
                   <td>
-                    <span className={`confidence ${item.confidence.toLowerCase()}`}>
-                      {item.confidence}
+                    <span className={`confidence ${displayConfidence(item).toLowerCase()}`}>
+                      {displayConfidence(item)}
                     </span>
                   </td>
                 </tr>
@@ -253,7 +255,7 @@ function ForecastChart({ item }: { item: ForecastItem }) {
         </div>
         <div>
           <dt>Predicted priority</dt>
-          <dd>{item.predicted_enforcement_priority.toFixed(1)}</dd>
+          <dd>{forecastPriority(item).toFixed(1)}</dd>
         </div>
         <div>
           <dt>Forecast stability</dt>
@@ -271,4 +273,12 @@ function ForecastChart({ item }: { item: ForecastItem }) {
       </div>
     </>
   );
+}
+
+function forecastPriority(item: ForecastItem) {
+  return item.predicted_enforcement_priority ?? item.predicted_obstruction_risk;
+}
+
+function displayConfidence(item: ForecastItem) {
+  return item.confidence ?? "Model";
 }

@@ -17,16 +17,16 @@ class PrecomputedStore:
         self.hotspots: list[dict[str, Any]] = self._load_json("hotspots.json")
         self.edges: list[dict[str, Any]] = self._load_json("graph_edges.json")
         self.temporal: dict[str, Any] = self._load_json("temporal.json")
-        self.forecast: dict[str, Any] = self._load_json("forecast.json")
+        self.hotspots_by_id = {
+            hotspot["grid_cell_id"]: hotspot for hotspot in self.hotspots
+        }
+        self.forecast_source, self.forecast = self._load_forecast()
         self.weekly_timeseries: dict[str, list[dict[str, Any]]] = self._load_json(
             "weekly_timeseries.json"
         )
         self.cell_timeseries: dict[str, list[dict[str, Any]]] = self._load_json(
             "cell_timeseries.json"
         )
-        self.hotspots_by_id = {
-            hotspot["grid_cell_id"]: hotspot for hotspot in self.hotspots
-        }
         self.edges_by_cell = self._index_edges(self.edges)
 
     def _load_json(self, filename: str) -> Any:
@@ -40,6 +40,68 @@ class PrecomputedStore:
                 return json.load(handle)
         except json.JSONDecodeError as exc:
             raise PrecomputedDataError(f"Invalid JSON in precomputed file: {path}") from exc
+
+    def _load_optional_json(self, filename: str) -> Any | None:
+        path = self.data_dir / filename
+        if not path.exists():
+            return None
+        try:
+            with path.open("r", encoding="utf-8") as handle:
+                return json.load(handle)
+        except json.JSONDecodeError as exc:
+            raise PrecomputedDataError(f"Invalid JSON in precomputed file: {path}") from exc
+
+    def _load_forecast(self) -> tuple[str, dict[str, Any]]:
+        forecast_source = "forecast_graphsage.json"
+        forecast = self._load_optional_json(forecast_source)
+        if forecast is None:
+            forecast_source = "forecast.json"
+            forecast = self._load_json(forecast_source)
+        return forecast_source, self._normalize_forecast(forecast, forecast_source)
+
+    def _normalize_forecast(
+        self, forecast: dict[str, Any], forecast_source: str
+    ) -> dict[str, Any]:
+        normalized = forecast.copy()
+        normalized["forecast_source"] = forecast_source
+        normalized["model"] = normalized.get("model") or (
+            "GraphSAGE" if forecast_source == "forecast_graphsage.json" else "Heuristic"
+        )
+
+        items = []
+        max_predicted = max(
+            (
+                float(item.get("predicted_violation_count", 0))
+                for item in normalized.get("items", [])
+            ),
+            default=1.0,
+        )
+        for item in normalized.get("items", []):
+            normalized_item = item.copy()
+            hotspot = self.hotspots_by_id.get(normalized_item.get("grid_cell_id"), {})
+            predicted_count = float(normalized_item.get("predicted_violation_count", 0))
+            predicted_risk = float(
+                normalized_item.get(
+                    "predicted_obstruction_risk",
+                    100.0 * predicted_count / max(max_predicted, 1.0),
+                )
+            )
+            normalized_item.setdefault("station", hotspot.get("dominant_station"))
+            normalized_item.setdefault("junction", hotspot.get("dominant_junction"))
+            normalized_item.setdefault("location", hotspot.get("representative_location"))
+            normalized_item.setdefault("predicted_obstruction_risk", round(predicted_risk, 2))
+            normalized_item.setdefault(
+                "predicted_enforcement_priority",
+                round(min(100.0, predicted_risk * 0.7 + predicted_count * 1.2), 2),
+            )
+            normalized_item.setdefault("confidence", hotspot.get("confidence") or "Model")
+            normalized_item.setdefault("neighbor_influence", hotspot.get("neighbor_influence", 0))
+            normalized_item.setdefault("forecast_reason_codes", item.get("reason_codes", []))
+            normalized_item.setdefault("reason_codes", item.get("forecast_reason_codes", []))
+            items.append(normalized_item)
+
+        normalized["items"] = items
+        return normalized
 
     @staticmethod
     def _index_edges(edges: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:

@@ -16,8 +16,8 @@ export default async function DashboardPage() {
             <h1>Dashboard data is not available yet.</h1>
             <p>
               Start the FastAPI backend and make sure preprocessing has generated the
-              JSON outputs. ParkWatch uses only the official dataset and reports a
-              Congestion-Risk Proxy, not measured traffic delay.
+              JSON outputs. ParkWatch needs the precomputed hotspot, forecast, and
+              patrol-planning data before the command dashboard can load.
             </p>
           </div>
         </section>

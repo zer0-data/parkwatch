@@ -63,7 +63,7 @@ export function AnalystCopilot({ activeTab, selectedCellId, filters }: AnalystCo
   const statusLabel = useMemo(() => {
     if (!response) return "Ready";
     if (response.provider === "hf") return response.cached ? "HF cached" : "HF live";
-    return response.cached ? "Fallback cached" : "Local fallback";
+    return response.cached ? "Local analyst cached" : "Local analyst";
   }, [response]);
 
   const submitQuestion = async (nextQuestion = question, mode = "freeform") => {
@@ -140,8 +140,8 @@ export function AnalystCopilot({ activeTab, selectedCellId, filters }: AnalystCo
           </Box>
 
           <Typography className="muted" variant="body2">
-            Answers use the current ParkWatch data context and stay within proxy-safe
-            wording.
+            Answers use the current ParkWatch dashboard context for hotspot, forecast,
+            patrol, and scenario analysis.
           </Typography>
 
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>

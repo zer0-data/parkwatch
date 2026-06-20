@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from typing import Any
 
 import httpx
@@ -16,6 +17,10 @@ DEFAULT_HF_MODEL = "Qwen/Qwen2.5-7B-Instruct:cheapest"
 COMPLIANCE_WARNING = (
     "ParkWatch uses official parking-violation data only. It reports obstruction-risk "
     "and enforcement-priority proxies, not measured congestion or measured delay."
+)
+LOCAL_ANALYST_WARNING = (
+    "Live HF model unavailable; answered with ParkWatch's local analyst generator "
+    "using the current dashboard context"
 )
 
 _CACHE: dict[str, dict[str, Any]] = {}
@@ -38,7 +43,7 @@ async def answer_copilot(request: CopilotRequest, store: PrecomputedStore) -> di
             "local_fallback",
             model,
             context,
-            extra_warning="HF_TOKEN is not configured in the backend environment.",
+            extra_warning=f"{LOCAL_ANALYST_WARNING}.",
         )
         return result
 
@@ -51,7 +56,7 @@ async def answer_copilot(request: CopilotRequest, store: PrecomputedStore) -> di
             "local_fallback",
             model,
             context,
-            extra_warning=f"HF unavailable, so ParkWatch used the deterministic fallback ({_hf_error_summary(exc)}).",
+            extra_warning=f"{LOCAL_ANALYST_WARNING} ({_hf_error_summary(exc)}).",
         )
 
     if result["provider"] == "hf":
@@ -82,8 +87,8 @@ def build_graph_context_pack(request: CopilotRequest, store: PrecomputedStore) -
             "value": f"{len(filtered):,} hotspots match the current dashboard filters.",
         },
         {
-            "label": "Compliance",
-            "value": "Proxy only; no measured congestion-speed, delay, or percent congestion reduction claim.",
+            "label": "Interpretation",
+            "value": "Planning intelligence from violation records; road-speed or measured-delay claims need traffic data.",
         },
     ]
 
@@ -130,6 +135,7 @@ def build_graph_context_pack(request: CopilotRequest, store: PrecomputedStore) -
             "Use only the supplied ParkWatch context.",
             "Do not claim measured congestion, measured delay, minutes saved, or exact congestion reduction.",
             "Use phrases like modeled obstruction-exposure reduction and enforcement-priority candidate.",
+            "Describe 0-100 scores as scores, not percentages or probabilities.",
             "If evidence is insufficient, say so directly.",
         ],
     }
@@ -144,9 +150,12 @@ async def _call_hf(
             "role": "system",
             "content": (
                 "You are ParkWatch Analyst Copilot. Answer concisely from the supplied "
-                "ParkWatch JSON context only. Be useful for a civic-tech hackathon demo. "
-                "Never claim measured congestion reduction, measured delay, minutes saved, "
-                "or traffic-speed impact. Include 2-4 evidence bullets when possible."
+                "ParkWatch JSON context only. Be useful for a civic-tech hackathon demo "
+                "and keep the tone product-oriented, not compliance-oriented. Never claim "
+                "measured congestion reduction, reduced congestion, measured delay, minutes "
+                "saved, or traffic-speed impact. Prefer phrases like targeted enforcement, "
+                "forecast-priority zones, patrol sequence, and obstruction-exposure planning. "
+                "Include 2-4 evidence bullets when possible."
             ),
         },
         {
@@ -270,7 +279,7 @@ def _response(
     context: dict[str, Any],
     extra_warning: str | None = None,
 ) -> dict[str, Any]:
-    warnings = [COMPLIANCE_WARNING]
+    warnings = []
     if extra_warning:
         warnings.append(extra_warning)
     return {
@@ -415,18 +424,51 @@ def _trim_context_for_prompt(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _sanitize_claims(answer: str) -> str:
+    sanitized = _repair_mojibake(answer)
+    sanitized = (
+        sanitized.replace("’", "'")
+        .replace("‘", "'")
+        .replace("“", '"')
+        .replace("”", '"')
+        .replace("–", "-")
+        .replace("—", "-")
+    )
     replacements = {
-        "measured congestion reduction": "modeled obstruction-exposure reduction",
-        "congestion reduction": "obstruction-risk proxy reduction",
-        "reduces congestion": "may reduce obstruction exposure",
-        "traffic delay": "traffic-delay proxy",
-        "minutes saved": "modeled exposure units reduced",
+        r"\bmeasured congestion reduction\b": "modeled obstruction-exposure reduction",
+        r"\bcongestion reduction\b": "obstruction-exposure planning",
+        r"\breduces congestion\b": "supports targeted enforcement",
+        r"\breduce congestion\b": "support targeted enforcement",
+        r"\breduced congestion\b": "improved enforcement focus",
+        r"\breducing congestion\b": "improving enforcement focus",
+        r"\btraffic delay\b": "traffic-delay proxy",
+        r"\bmeasured delay\b": "measured-delay data",
+        r"\bminutes saved\b": "modeled exposure units reduced",
+        r"\bimproved traffic flow\b": "improved enforcement focus",
     }
-    sanitized = answer
-    for forbidden, replacement in replacements.items():
-        sanitized = sanitized.replace(forbidden, replacement)
-        sanitized = sanitized.replace(forbidden.title(), replacement)
+    for pattern, replacement in replacements.items():
+        sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(
+        r"\b100%\s+predicted obstruction risk\b",
+        "obstruction risk score of 100.0",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
+    sanitized = re.sub(
+        r"\b100%\s+risk of obstruction\b",
+        "obstruction risk score of 100.0",
+        sanitized,
+        flags=re.IGNORECASE,
+    )
     return sanitized
+
+
+def _repair_mojibake(value: str) -> str:
+    if "â" not in value:
+        return value
+    try:
+        return value.encode("latin-1").decode("utf-8")
+    except UnicodeError:
+        return value
 
 
 def _hf_error_summary(exc: Exception) -> str:

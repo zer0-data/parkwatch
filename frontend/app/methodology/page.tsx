@@ -9,22 +9,34 @@ const datasetFields = [
   "validation_status"
 ];
 
-const limitations = [
-  "Patrol bias: observed violations reflect where enforcement or capture devices were present.",
-  "Missing traffic speed: the dataset does not include speed, travel time, queue length, or flow.",
-  "No measured delay: ParkWatch cannot estimate actual delay from the official CSV alone.",
-  "No violation duration: records show observations, not how long each obstruction persisted.",
-  "Partial months: the available window may include incomplete calendar coverage.",
-  "Validation missingness: some rows do not have a completed validation status."
+const engines = [
+  {
+    name: "Hotspot Detection Engine",
+    body:
+      "The offline pipeline reads the provided violation CSV, converts records into 0.001-degree grid cells, and computes repeated-observation signals including volume, recurrence, severity, junction share, validation, device support, and nearby-cell activity."
+  },
+  {
+    name: "GraphSAGE Forecast Engine",
+    body:
+      "When forecast_graphsage.json is present, ParkWatch serves the trained GraphSAGE forecast first. The model ranks future observed parking violation pressure while the app keeps the standard forecast as a fallback."
+  },
+  {
+    name: "A* Patrol Planner",
+    body:
+      "The planner chooses forecast-priority zones, treats them as a coordinate enforcement graph, and runs A* with haversine distance as the heuristic. Leaflet visualizes the stop order, route line, and action list."
+  },
+  {
+    name: "Scenario Impact Engine",
+    body:
+      "Scenario controls estimate how targeted enforcement choices change modeled obstruction-exposure coverage across selected hotspots and the citywide hotspot set."
+  }
 ];
 
-const futureExtensions = [
-  "OSM context for road class and intersection structure.",
-  "Traffic speed or travel-time feeds for measured congestion analysis.",
-  "Weather data for exposure and seasonal context.",
-  "Camera-based detection for duration and obstruction persistence.",
-  "STGCN or related spatiotemporal graph models after stronger validation data exists.",
-  "Cost or minutes-saved estimates only after validation against measured delay."
+const scoreSignals = [
+  "Obstruction Risk Score combines violation volume, recurrence, severity, junction share, validation, and graph-neighbor influence.",
+  "Enforcement Priority adds station-normalized volume, recent activity, trend, peak-hour concentration, confidence, and stability.",
+  "Forecast priority highlights next-week observed violation pressure and supports patrol sequencing.",
+  "Confidence describes evidence density from repeated records, active days, and device-days."
 ];
 
 export default function MethodologyPage() {
@@ -32,12 +44,12 @@ export default function MethodologyPage() {
     <main className="page-shell methodology-page">
       <section className="hero-band methodology-hero">
         <div>
-          <p className="eyebrow">Methodology and compliance</p>
-          <h1>Official-data-only obstruction risk analytics.</h1>
+          <p className="eyebrow">ParkWatch AI engine</p>
+          <h1>From parking violations to targeted enforcement plans.</h1>
           <p>
-            ParkWatch summarizes where observed parking violations cluster, repeat, and
-            connect spatially. Outputs are Obstruction Risk Score and future observed
-            violation forecasts, not measured congestion or measured delay reduction.
+            ParkWatch combines hotspot analytics, graph forecasting, A* patrol
+            sequencing, and scenario planning to help traffic teams prioritize illegal
+            parking enforcement around Bengaluru.
           </p>
         </div>
       </section>
@@ -46,16 +58,20 @@ export default function MethodologyPage() {
         <article className="method-section wide">
           <h2>System Overview</h2>
           <p>
-            ParkWatch has three parts: an offline preprocessing pipeline, a FastAPI
-            backend, and a Next.js frontend. The preprocessing script reads the official
-            CSV once, converts timestamps to Asia/Kolkata, parses violation types,
-            aggregates hotspot metrics, builds a grid-cell graph, computes obstruction
-            risk, computes enforcement priority, forecasts future observed violations,
-            and writes JSON files. The backend serves only those precomputed JSON
-            outputs. The frontend renders dashboard, explainer, temporal, graph,
-            forecast, and methodology views from backend endpoints.
+            ParkWatch has an offline preprocessing pipeline, a FastAPI backend, and a
+            Next.js dashboard. The pipeline builds hotspot scores, graph features,
+            forecasts, temporal summaries, and export-ready JSON. The dashboard turns
+            those outputs into maps, rankings, forecasts, A* patrol plans, scenario
+            comparisons, and reports.
           </p>
         </article>
+
+        {engines.map((engine) => (
+          <article key={engine.name}>
+            <h2>{engine.name}</h2>
+            <p>{engine.body}</p>
+          </article>
+        ))}
 
         <article>
           <h2>Dataset Fields Used</h2>
@@ -67,114 +83,48 @@ export default function MethodologyPage() {
         </article>
 
         <article>
-          <h2>Why External Data Is Not Used</h2>
-          <p>
-            The current project constraint is official dataset only. No OSM, traffic
-            speed, weather, road network, map tile, or third-party operational dataset is
-            used in scoring, forecasting, or API responses. This keeps the prototype
-            auditable and prevents unsupported claims about measured congestion.
-          </p>
-        </article>
-
-        <article>
-          <h2>Grid Graph</h2>
-          <p>
-            Latitude and longitude are assigned to 0.001-degree grid cells. Each grid
-            cell becomes a spatial node. Edges are created only between cells whose
-            dataset-derived representative coordinates are within the configured
-            haversine distance band of 300 to 500 meters. Neighbor influence is computed
-            from connected cells and edge weights.
-          </p>
-        </article>
-
-        <article>
-          <h2>Confidence Labels</h2>
-          <p>
-            Confidence describes evidence density, not correctness of congestion impact.
-            High requires at least 25 violations, 5 active days, and 5 device-days.
-            Medium requires at least 8 violations and 2 active days. All other cells are
-            labeled Low.
-          </p>
+          <h2>Decision Signals</h2>
+          <ul className="method-list">
+            {scoreSignals.map((signal) => (
+              <li key={signal}>{signal}</li>
+            ))}
+          </ul>
         </article>
 
         <article className="method-section wide">
-          <h2>Obstruction Risk Score Formula</h2>
+          <h2>Scoring Formula</h2>
           <p>
-            The score is scaled from 0 to 100 after combining normalized hotspot
-            components:
+            The hotspot engine keeps the core score interpretable while the priority
+            score adds operational timing and station context:
           </p>
-          <pre className="formula-block">{`0.30 * violation volume
+          <pre className="formula-block">{`Obstruction Risk =
+0.30 * violation volume
 + 0.15 * active-day recurrence
 + 0.10 * device-day support
 + 0.20 * mean severity
 + 0.10 * junction share
 + 0.10 * graph-neighbor influence
-+ 0.05 * validation share`}</pre>
-          <p>
-            Severity is based only on official violation types. High severity includes
-            double parking, main-road parking, parking near crossings, bus stops, schools,
-            hospitals, traffic lights, zebra crossings, and opposite another parked
-            vehicle. Parking on footpath is Medium. Other violation types are Low.
-          </p>
-        </article>
++ 0.05 * validation share
 
-        <article className="method-section wide">
-          <h2>Enforcement Priority Score Formula</h2>
-          <p>
-            The action score is scaled from 0 to 100 and combines the risk proxy with
-            operational signals available in the official CSV:
-          </p>
-          <pre className="formula-block">{`0.28 * Obstruction Risk Score
+Enforcement Priority =
+0.28 * Obstruction Risk Score
 + 0.18 * station-normalized violation volume
 + 0.14 * recent 4-week activity
 + 0.12 * peak-hour temporal concentration
 + 0.10 * recent trend ratio
 + 0.08 * graph-neighbor influence
 + 0.06 * confidence evidence level
-+ 0.04 * stability across weeks, days, and devices`}</pre>
++ 0.04 * stability`}</pre>
+        </article>
+
+        <article className="method-section wide">
+          <h2>Interpretation Note</h2>
           <p>
-            This score ranks where enforcement should be considered first. It does not
-            measure traffic speed, delay, or congestion reduction.
+            ParkWatch uses provided parking violation records for planning intelligence.
+            The A* planner runs on a dataset-derived coordinate hotspot graph, not a
+            road-network graph. Road-speed, measured-delay, and exact
+            congestion-reduction claims require additional traffic data.
           </p>
-        </article>
-
-        <article>
-          <h2>Forecast V2 Method</h2>
-          <p>
-            The forecast predicts next-week future observed parking violations. It uses
-            last 1-week count, last 2-week average, last 4-week average, recent trend,
-            station-normalized activity, graph-neighbor activity, temporal
-            concentration, and stability. Rolling-origin weekly backtesting evaluates
-            forecast error on observed violation counts.
-          </p>
-        </article>
-
-        <article>
-          <h2>Compliance Boundary</h2>
-          <p>
-            ParkWatch must not claim actual measured congestion reduction, minutes
-            saved, travel time saved, or delay avoided from this dataset alone. Current
-            outputs are decision-support proxies for where obstruction risk may deserve
-            review.
-          </p>
-        </article>
-
-        <article>
-          <h2>Limitations</h2>
-          <ul className="method-list">
-            {limitations.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </article>
-
-        <article>
-          <h2>Future Extensions</h2>
-          <ul className="method-list">
-            {futureExtensions.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
         </article>
       </section>
     </main>

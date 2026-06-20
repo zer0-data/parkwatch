@@ -1,4 +1,4 @@
-export type Confidence = "High" | "Medium" | "Low";
+export type Confidence = "High" | "Medium" | "Low" | "Model";
 
 export type Summary = {
   hotspot_count: number;
@@ -103,10 +103,10 @@ export type ForecastItem = {
   prediction_interval_low: number;
   prediction_interval_high: number;
   predicted_obstruction_risk: number;
-  predicted_enforcement_priority: number;
+  predicted_enforcement_priority?: number | null;
   forecast_stability: number;
-  confidence: Confidence;
-  neighbor_influence: number;
+  confidence?: Confidence | null;
+  neighbor_influence?: number | null;
   last_1_week_count: number;
   last_2_week_avg: number;
   last_4_week_avg: number;
@@ -117,6 +117,8 @@ export type ForecastItem = {
 
 export type ForecastResponse = {
   forecast_type: string;
+  model?: string | null;
+  forecast_source?: string | null;
   not_measured_congestion: boolean;
   method: string;
   forecast_week: string | null;

@@ -44,8 +44,9 @@ export function obstructionExposure(hotspot: Hotspot) {
   const confidenceMultiplier = {
     High: 1,
     Medium: 0.75,
-    Low: 0.45
-  }[hotspot.confidence];
+    Low: 0.45,
+    Model: 0.75
+  }[hotspot.confidence] ?? 0.75;
 
   return (
     hotspot.violation_count *
