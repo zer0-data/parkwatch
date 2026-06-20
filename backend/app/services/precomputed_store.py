@@ -10,6 +10,8 @@ class PrecomputedDataError(RuntimeError):
     pass
 
 
+
+
 class PrecomputedStore:
     def __init__(self, data_dir: Path | None = None) -> None:
         self.data_dir = data_dir or Path(__file__).resolve().parents[1] / "data" / "processed"
@@ -17,7 +19,7 @@ class PrecomputedStore:
         self.hotspots: list[dict[str, Any]] = self._load_json("hotspots.json")
         self.edges: list[dict[str, Any]] = self._load_json("graph_edges.json")
         self.temporal: dict[str, Any] = self._load_json("temporal.json")
-        self.forecast: dict[str, Any] = self._load_json("forecast.json")
+        self.forecast: dict[str, Any] = self._load_json("forecast_graphsage.json")
         self.weekly_timeseries: dict[str, list[dict[str, Any]]] = self._load_json(
             "weekly_timeseries.json"
         )

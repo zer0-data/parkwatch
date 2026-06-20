@@ -121,10 +121,11 @@ class ForecastItem(BaseModel):
     prediction_interval_low: float
     prediction_interval_high: float
     predicted_obstruction_risk: float = Field(ge=0, le=100)
-    predicted_enforcement_priority: float = Field(ge=0, le=100)
+    # Optional: heuristic-only fields not present in ML model forecasts
+    predicted_enforcement_priority: float = Field(default=0.0, ge=0, le=100)
     forecast_stability: float = Field(ge=0, le=100)
-    confidence: str
-    neighbor_influence: float
+    confidence: str | None = None
+    neighbor_influence: float = 0.0
     last_1_week_count: int
     last_2_week_avg: float
     last_4_week_avg: float
