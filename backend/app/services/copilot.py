@@ -33,7 +33,13 @@ async def answer_copilot(request: CopilotRequest, store: PrecomputedStore) -> di
     hf_token = os.getenv("HF_TOKEN")
     model = os.getenv("HF_MODEL", DEFAULT_HF_MODEL)
     if not hf_token:
-        result = _response(fallback, "local_fallback", model, context)
+        result = _response(
+            fallback,
+            "local_fallback",
+            model,
+            context,
+            extra_warning="HF_TOKEN is not configured in the backend environment.",
+        )
         _CACHE[cache_key] = result
         return result
 

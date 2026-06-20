@@ -203,11 +203,11 @@ export function AnalystCopilot({ activeTab, selectedCellId, filters }: AnalystCo
                     </span>
                   ))}
                 </Box>
-                {response.warnings[0] && (
-                  <Typography className="muted" variant="caption">
-                    {response.warnings[0]}
+                {response.warnings.map((warning) => (
+                  <Typography className="muted" key={warning} variant="caption">
+                    {warning}
                   </Typography>
-                )}
+                ))}
               </>
             )}
             {!loading && !response && (
