@@ -89,6 +89,8 @@ Optional HF copilot setup:
 Copy-Item .env.example .env
 # Add a Hugging Face fine-grained/read token with Inference Providers access:
 # HF_TOKEN=hf_...
+# Optional cheaper demo model:
+# HF_MODEL=Qwen/Qwen2.5-3B-Instruct:cheapest
 ```
 
 The copilot token is read only by the FastAPI backend. Do not commit `.env` or

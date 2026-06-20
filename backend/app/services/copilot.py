@@ -12,7 +12,7 @@ from .precomputed_store import PrecomputedStore
 
 
 HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
-DEFAULT_HF_MODEL = "Qwen/Qwen2.5-7B-Instruct:cheapest"
+DEFAULT_HF_MODEL = "Qwen/Qwen2.5-3B-Instruct:cheapest"
 COMPLIANCE_WARNING = (
     "ParkWatch uses official parking-violation data only. It reports obstruction-risk "
     "and enforcement-priority proxies, not measured congestion or measured delay."
@@ -46,7 +46,7 @@ async def answer_copilot(request: CopilotRequest, store: PrecomputedStore) -> di
             "local_fallback",
             model,
             context,
-            extra_warning=f"HF unavailable, so ParkWatch used the deterministic fallback ({type(exc).__name__}).",
+            extra_warning=f"HF unavailable, so ParkWatch used the deterministic fallback ({_hf_error_summary(exc)}).",
         )
 
     _CACHE[cache_key] = result
@@ -421,6 +421,26 @@ def _sanitize_claims(answer: str) -> str:
         sanitized = sanitized.replace(forbidden, replacement)
         sanitized = sanitized.replace(forbidden.title(), replacement)
     return sanitized
+
+
+def _hf_error_summary(exc: Exception) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        status = exc.response.status_code
+        detail = exc.response.text[:180].replace("\n", " ").strip()
+        if status == 401:
+            return "HF 401 unauthorized; check HF_TOKEN in the backend environment"
+        if status == 402:
+            return "HF 402 payment/credits; free credits may be exhausted"
+        if status == 429:
+            return "HF 429 rate limited; wait briefly or reduce demo calls"
+        if detail:
+            return f"HF HTTP {status}: {detail}"
+        return f"HF HTTP {status}"
+    if isinstance(exc, httpx.TimeoutException):
+        return "HF request timed out; try a smaller model or higher HF_TIMEOUT_SECONDS"
+    if isinstance(exc, httpx.ConnectError):
+        return "HF connection failed; check network access from the backend"
+    return type(exc).__name__
 
 
 def _cache_key(request: CopilotRequest, context: dict[str, Any]) -> str:
