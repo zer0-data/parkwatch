@@ -17,6 +17,7 @@ import { HeatmapLayer } from "./heatmap-layer";
 import { ForecastPanel } from "./forecast-panel";
 import { ImpactScenarioPanel } from "./impact-scenario-panel";
 import { CompiledReportPanel } from "./compiled-report-panel";
+import { AnalystCopilot } from "./analyst-copilot";
 import { MetricCards } from "./metric-cards";
 import { RankedHotspotTable } from "./ranked-hotspot-table";
 import { TemporalHeatmap } from "./temporal-heatmap";
@@ -150,6 +151,17 @@ export function DashboardShell({
       filteredHotspots.find((hotspot) => hotspot.grid_cell_id === selectedCellId) ??
       null,
     [filteredHotspots, selectedCellId]
+  );
+
+  const copilotFilters = useMemo(
+    () => ({
+      station: stationFilter,
+      confidence: confidenceFilter,
+      violation_type: violationTypeFilter,
+      weekday: weekdayFilter,
+      hour: hourFilter === "All hours" ? null : Number(hourFilter)
+    }),
+    [confidenceFilter, hourFilter, stationFilter, violationTypeFilter, weekdayFilter]
   );
 
   const exportPriorityCsv = () => {
@@ -378,6 +390,11 @@ export function DashboardShell({
           </div>
         </section>
       )}
+      <AnalystCopilot
+        activeTab={activeTab}
+        selectedCellId={selectedCellId}
+        filters={copilotFilters}
+      />
     </main>
   );
 }

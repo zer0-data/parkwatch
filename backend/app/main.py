@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 
 from .models import (
     CellGraphResponse,
+    CopilotRequest,
+    CopilotResponse,
     ForecastResponse,
     HealthResponse,
     Hotspot,
@@ -16,6 +18,7 @@ from .models import (
     TimeseriesPoint,
     WeeklyTimeseriesPoint,
 )
+from .services.copilot import answer_copilot
 from .services.precomputed_store import (
     PrecomputedDataError,
     get_store,
@@ -119,3 +122,8 @@ def forecast(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, object
     payload = get_store().forecast.copy()
     payload["items"] = payload.get("items", [])[:limit]
     return payload
+
+
+@app.post("/api/copilot", response_model=CopilotResponse)
+async def copilot(request: CopilotRequest) -> dict[str, object]:
+    return await answer_copilot(request, get_store())

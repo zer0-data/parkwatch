@@ -83,6 +83,17 @@ npm.cmd run dev
 The frontend expects the backend at `http://127.0.0.1:8000` by default. Set
 `NEXT_PUBLIC_API_BASE_URL` to point at a different FastAPI host.
 
+Optional HF copilot setup:
+
+```powershell
+Copy-Item .env.example .env
+# Add a Hugging Face fine-grained/read token with Inference Providers access:
+# HF_TOKEN=hf_...
+```
+
+The copilot token is read only by the FastAPI backend. Do not commit `.env` or
+paste tokens into frontend environment variables.
+
 For a production-style frontend start after `npm.cmd run build`:
 
 ```powershell

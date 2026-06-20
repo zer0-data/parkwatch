@@ -1,4 +1,6 @@
 import type {
+  CopilotRequest,
+  CopilotResponse,
   GraphResponse,
   ForecastResponse,
   HeatmapPoint,
@@ -46,4 +48,22 @@ export async function getHotspotDetail(cellId: string) {
   ]);
 
   return { timeseries, graph };
+}
+
+export async function askCopilot(payload: CopilotRequest) {
+  const response = await fetch("/api/backend/copilot", {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json"
+    },
+    body: JSON.stringify(payload),
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Copilot request failed (${response.status})`);
+  }
+
+  return response.json() as Promise<CopilotResponse>;
 }

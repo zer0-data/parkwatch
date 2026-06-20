@@ -140,3 +140,33 @@ class ForecastResponse(BaseModel):
     forecast_week: str | None = None
     holdout: dict[str, Any]
     items: list[ForecastItem]
+
+
+class CopilotFilters(BaseModel):
+    station: str | None = None
+    confidence: str | None = None
+    violation_type: str | None = None
+    weekday: str | None = None
+    hour: int | None = None
+
+
+class CopilotRequest(BaseModel):
+    question: str = Field(min_length=1, max_length=800)
+    mode: str = "freeform"
+    active_tab: str = "overview"
+    selected_cell_id: str | None = None
+    filters: CopilotFilters = Field(default_factory=CopilotFilters)
+
+
+class CopilotEvidence(BaseModel):
+    label: str
+    value: str
+
+
+class CopilotResponse(BaseModel):
+    answer: str
+    provider: str
+    model: str | None = None
+    cached: bool = False
+    evidence: list[CopilotEvidence]
+    warnings: list[str]

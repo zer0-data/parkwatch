@@ -129,3 +129,28 @@ export type ForecastResponse = {
   };
   items: ForecastItem[];
 };
+
+export type CopilotFilters = {
+  station?: string | null;
+  confidence?: string | null;
+  violation_type?: string | null;
+  weekday?: string | null;
+  hour?: number | null;
+};
+
+export type CopilotRequest = {
+  question: string;
+  mode: string;
+  active_tab: string;
+  selected_cell_id: string | null;
+  filters: CopilotFilters;
+};
+
+export type CopilotResponse = {
+  answer: string;
+  provider: "hf" | "local_fallback" | string;
+  model: string | null;
+  cached: boolean;
+  evidence: { label: string; value: string }[];
+  warnings: string[];
+};
