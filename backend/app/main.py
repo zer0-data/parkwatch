@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from .models import (
     CellGraphResponse,
@@ -125,5 +125,6 @@ def forecast(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, object
 
 
 @app.post("/api/copilot", response_model=CopilotResponse)
-async def copilot(request: CopilotRequest) -> dict[str, object]:
+async def copilot(request: CopilotRequest, response: Response) -> dict[str, object]:
+    response.headers["Cache-Control"] = "no-store"
     return await answer_copilot(request, get_store())

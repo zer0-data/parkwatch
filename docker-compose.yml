@@ -11,7 +11,7 @@ services:
       - LOG_LEVEL=info
       - PYTHONPATH=/app
       - HF_TOKEN=${HF_TOKEN:-}
-      - HF_MODEL=${HF_MODEL:-Qwen/Qwen2.5-3B-Instruct:cheapest}
+      - HF_MODEL=${HF_MODEL:-Qwen/Qwen2.5-7B-Instruct:cheapest}
       - HF_TIMEOUT_SECONDS=${HF_TIMEOUT_SECONDS:-8}
     volumes:
       - ./backend:/app/backend:z

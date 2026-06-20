@@ -12,7 +12,7 @@ from .precomputed_store import PrecomputedStore
 
 
 HF_CHAT_URL = "https://router.huggingface.co/v1/chat/completions"
-DEFAULT_HF_MODEL = "Qwen/Qwen2.5-3B-Instruct:cheapest"
+DEFAULT_HF_MODEL = "Qwen/Qwen2.5-7B-Instruct:cheapest"
 COMPLIANCE_WARNING = (
     "ParkWatch uses official parking-violation data only. It reports obstruction-risk "
     "and enforcement-priority proxies, not measured congestion or measured delay."
@@ -40,7 +40,6 @@ async def answer_copilot(request: CopilotRequest, store: PrecomputedStore) -> di
             context,
             extra_warning="HF_TOKEN is not configured in the backend environment.",
         )
-        _CACHE[cache_key] = result
         return result
 
     try:
@@ -55,7 +54,8 @@ async def answer_copilot(request: CopilotRequest, store: PrecomputedStore) -> di
             extra_warning=f"HF unavailable, so ParkWatch used the deterministic fallback ({_hf_error_summary(exc)}).",
         )
 
-    _CACHE[cache_key] = result
+    if result["provider"] == "hf":
+        _CACHE[cache_key] = result
     return result
 
 
