@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>ParkWatch Cloudflare Deployment Guide</title>
+    <style>
+      @page {
+        margin: 0.7in;
+      }
+
+      body {
+        color: #172033;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 12.5px;
+        line-height: 1.5;
+        margin: 0;
+      }
+
+      h1,
+      h2,
+      h3 {
+        color: #101827;
+        line-height: 1.2;
+        margin: 0 0 8px;
+      }
+
+      h1 {
+        font-size: 28px;
+        margin-bottom: 10px;
+      }
+
+      h2 {
+        border-bottom: 1px solid #d8dee9;
+        font-size: 18px;
+        margin-top: 24px;
+        padding-bottom: 5px;
+      }
+
+      h3 {
+        font-size: 14px;
+        margin-top: 18px;
+      }
+
+      p {
+        margin: 7px 0;
+      }
+
+      ul,
+      ol {
+        margin: 7px 0 7px 22px;
+        padding: 0;
+      }
+
+      li {
+        margin: 4px 0;
+      }
+
+      code {
+        background: #eef2f7;
+        border-radius: 4px;
+        color: #0f172a;
+        font-family: Consolas, "Liberation Mono", monospace;
+        font-size: 11.5px;
+        padding: 1px 4px;
+      }
+
+      pre {
+        background: #0f172a;
+        border-radius: 7px;
+        color: #e5e7eb;
+        font-family: Consolas, "Liberation Mono", monospace;
+        font-size: 11px;
+        line-height: 1.45;
+        margin: 9px 0;
+        overflow-wrap: anywhere;
+        padding: 10px 12px;
+        white-space: pre-wrap;
+      }
+
+      pre code {
+        background: transparent;
+        color: inherit;
+        padding: 0;
+      }
+
+      .hero {
+        background: #f5f7fb;
+        border: 1px solid #d8dee9;
+        border-radius: 8px;
+        margin-bottom: 18px;
+        padding: 18px;
+      }
+
+      .small {
+        color: #526072;
+        font-size: 11px;
+      }
+
+      .callout {
+        background: #fff8e6;
+        border: 1px solid #f2d28b;
+        border-radius: 7px;
+        margin: 12px 0;
+        padding: 10px 12px;
+      }
+
+      .success {
+        background: #eefbf3;
+        border-color: #a7dfbb;
+      }
+
+      .danger {
+        background: #fff1f2;
+        border-color: #f0a8b0;
+      }
+
+      .checklist li {
+        list-style: none;
+        margin-left: -18px;
+      }
+
+      .checklist li::before {
+        content: "[ ] ";
+        color: #475569;
+        font-family: Consolas, "Liberation Mono", monospace;
+      }
+
+      a {
+        color: #1455d9;
+      }
+    </style>
+  </head>
+  <body>
+    <section class="hero">
+      <h1>ParkWatch Cloudflare Deployment Guide</h1>
+      <p>
+        Beginner steps for sharing ParkWatch globally for free using Cloudflare Quick Tunnel.
+        This path does not need a paid domain.
+      </p>
+      <p class="small">Generated for the local project at /home/kabeerkhosla/Desktop/flipkart/parkwatch.</p>
+    </section>
+
+    <h2>What This Gives You</h2>
+    <ul>
+      <li>A public HTTPS link like <code>https://something.trycloudflare.com/dashboard</code>.</li>
+      <li>Anyone on the internet can open the dashboard while your computer is on.</li>
+      <li>No router setup, no port forwarding, and no domain purchase.</li>
+      <li>The link is temporary and usually changes when you restart the tunnel.</li>
+    </ul>
+
+    <div class="callout danger">
+      <strong>Important:</strong> Without buying or owning a domain, Cloudflare Quick Tunnel is best for demos.
+      It is not a permanent production URL. If the laptop sleeps, shuts down, or loses internet, the link stops working.
+    </div>
+
+    <h2>Before You Start</h2>
+    <ul class="checklist">
+      <li>Docker Desktop or Docker Engine is running.</li>
+      <li>You are in the ParkWatch folder.</li>
+      <li>The ParkWatch stack starts successfully with Docker Compose.</li>
+      <li>The backend health check returns <code>{"status":"ok","data_ready":true}</code>.</li>
+    </ul>
+
+    <h2>Step 1: Open The Project Folder</h2>
+    <p>Open a terminal and run:</p>
+    <pre><code>cd /home/kabeerkhosla/Desktop/flipkart/parkwatch</code></pre>
+
+    <h2>Step 2: Start ParkWatch</h2>
+    <p>Run ParkWatch in the background:</p>
+    <pre><code>docker compose up -d --build</code></pre>
+
+    <p>Check that all containers are running:</p>
+    <pre><code>docker compose ps</code></pre>
+
+    <p>You should see:</p>
+    <ul>
+      <li><code>parkwatch-backend</code> as healthy.</li>
+      <li><code>parkwatch-frontend</code> as healthy.</li>
+      <li><code>parkwatch-nginx</code> as running.</li>
+    </ul>
+
+    <h2>Step 3: Test Locally First</h2>
+    <p>Open this in your browser:</p>
+    <pre><code>http://localhost:3000/dashboard</code></pre>
+
+    <p>Also check the backend:</p>
+    <pre><code>curl http://localhost:8001/api/health</code></pre>
+
+    <p>Expected output:</p>
+    <pre><code>{"status":"ok","data_ready":true}</code></pre>
+
+    <h2>Step 4: Install cloudflared</h2>
+    <p>If <code>cloudflared</code> is not installed, install it on Linux with:</p>
+    <pre><code>wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
+sudo dpkg -i cloudflared-linux-amd64.deb</code></pre>
+
+    <p>Check installation:</p>
+    <pre><code>cloudflared --version</code></pre>
+
+    <h2>Step 5: Create The Public Cloudflare Link</h2>
+    <p>In a new terminal, run:</p>
+    <pre><code>cloudflared tunnel --url http://localhost:3000</code></pre>
+
+    <p>Cloudflare will print a URL that looks like this:</p>
+    <pre><code>https://example-random-name.trycloudflare.com</code></pre>
+
+    <p>Open the dashboard by adding <code>/dashboard</code>:</p>
+    <pre><code>https://example-random-name.trycloudflare.com/dashboard</code></pre>
+
+    <div class="callout success">
+      <strong>Done:</strong> That <code>trycloudflare.com</code> link is your global public ParkWatch link.
+      Share it with anyone while the tunnel terminal stays open.
+    </div>
+
+    <h2>Step 6: Keep It Online</h2>
+    <ul>
+      <li>Keep Docker running.</li>
+      <li>Keep the <code>cloudflared tunnel</code> terminal open.</li>
+      <li>Keep the laptop awake.</li>
+      <li>Keep your internet connection stable.</li>
+    </ul>
+
+    <h2>Daily Start Commands</h2>
+    <p>When you want to share ParkWatch again later:</p>
+    <pre><code>cd /home/kabeerkhosla/Desktop/flipkart/parkwatch
+docker compose up -d --build
+cloudflared tunnel --url http://localhost:3000</code></pre>
+
+    <p>Then copy the new <code>trycloudflare.com</code> link and open <code>/dashboard</code>.</p>
+
+    <h2>Stop Everything</h2>
+    <p>Stop the Cloudflare tunnel with <code>Ctrl+C</code> in the tunnel terminal.</p>
+    <p>Stop ParkWatch with:</p>
+    <pre><code>cd /home/kabeerkhosla/Desktop/flipkart/parkwatch
+docker compose down</code></pre>
+
+    <h2>Troubleshooting</h2>
+    <h3>The Cloudflare URL opens but dashboard data does not load</h3>
+    <pre><code>docker compose ps
+curl http://localhost:8001/api/health</code></pre>
+    <p>If the backend is not healthy, restart:</p>
+    <pre><code>docker compose down
+docker compose up -d --build</code></pre>
+
+    <h3>Port 8000 is busy</h3>
+    <p>This project currently maps the backend to <code>8001</code> on your laptop because another container was using host networking. Use:</p>
+    <pre><code>curl http://localhost:8001/api/health</code></pre>
+
+    <h3>Port 3000 is busy</h3>
+    <p>Find what is using it:</p>
+    <pre><code>ss -ltnp 'sport = :3000'</code></pre>
+    <p>Either stop that app or change the frontend port in <code>docker-compose.yml</code>.</p>
+
+    <h3>Cloudflare link changed</h3>
+    <p>This is normal for Quick Tunnel. Run the tunnel command again and use the new URL.</p>
+
+    <h3>You want a permanent Cloudflare URL</h3>
+    <p>
+      A permanent Cloudflare Tunnel hostname requires a domain managed in Cloudflare DNS.
+      That can still be low cost, but it is no longer the no-domain free path.
+    </p>
+
+    <h2>Useful Commands</h2>
+    <pre><code>docker compose ps
+docker compose logs -f
+docker compose logs -f backend
+docker compose logs -f frontend
+docker compose down
+cloudflared tunnel --url http://localhost:3000</code></pre>
+
+    <h2>Official References</h2>
+    <ul>
+      <li>Cloudflare Quick Tunnels: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/</li>
+      <li>Cloudflared downloads: https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/downloads/</li>
+    </ul>
+  </body>
+</html>
