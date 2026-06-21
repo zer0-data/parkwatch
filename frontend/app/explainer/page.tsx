@@ -3,19 +3,19 @@ const workflow = [
     step: "Detect hotspots",
     title: "Find repeated illegal-parking pressure zones",
     body:
-      "ParkWatch groups official parking violation records into grid cells, then ranks the zones where repeated observations, severity, junction share, and nearby activity create the strongest enforcement signal."
+      "ParkWatch groups official parking violation records into grid cells and builds a spatial hotspot graph from repeated observations, station context, junction signals, and nearby-cell activity."
   },
   {
     step: "Forecast pressure",
-    title: "See where next-week violations are likely",
+    title: "Let GraphSAGE rank next-week pressure",
     body:
-      "The forecast view highlights likely future observed violations and shows the model/source behind the ranking, including GraphSAGE output when the trained artifact is available."
+      "The forecast view prefers the trained GraphSAGE artifact, showing likely future observed violations, forecast priority, model name, and source file behind the ranking."
   },
   {
     step: "Prioritize action",
-    title: "Convert hotspots into deployment candidates",
+    title: "Turn forecast-priority zones into action",
     body:
-      "Enforcement Priority blends risk, recency, trend, station-normalized volume, peak concentration, confidence, and stability so teams can focus on the zones that matter operationally."
+      "Baseline hotspot scores stay available for filtering and fallback, while GraphSAGE forecast priority drives the patrol candidates when the trained forecast is present."
   },
   {
     step: "Plan patrols",
@@ -32,8 +32,9 @@ const workflow = [
 ];
 
 const signals = [
-  "Hotspot score: repeated observed violation pressure in a grid cell.",
-  "Forecast priority: next-week model pressure for future observed violations.",
+  "GraphSAGE forecast priority: lead AI signal for next-week observed violation pressure.",
+  "Predicted violations: model output used to size enforcement pressure.",
+  "Baseline hotspot score: transparent fallback and filtering signal.",
   "Patrol sequence: A* ordering across selected hotspot coordinates.",
   "Impact scenario: modeled obstruction-exposure coverage for targeted action."
 ];

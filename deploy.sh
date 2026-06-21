@@ -80,8 +80,8 @@ case $DEPLOYMENT_TARGET in
     sleep 3
     
     # Check health
-    if curl -s http://localhost:8000/api/health > /dev/null; then
-      echo -e "${GREEN}✓${NC} Backend healthy at http://localhost:8000"
+    if curl -s http://localhost:8001/api/health > /dev/null; then
+      echo -e "${GREEN}OK${NC} Backend healthy at http://localhost:8001"
     else
       echo -e "${RED}✗${NC} Backend not responding"
     fi
@@ -166,7 +166,7 @@ EOF
     echo "1. SSH to instance: ssh -i $SSH_KEY $SSH_USER@$INSTANCE_IP"
     echo "2. Start backend: cd parkwatch && source .venv/bin/activate && gunicorn -w 4 -b 0.0.0.0:8000 backend.app.main:app"
     echo "3. Start frontend: cd parkwatch/frontend && npm run start"
-    echo "4. Setup Nginx reverse proxy (see DEPLOYMENT.md)"
+    echo "4. Setup Nginx reverse proxy (see README.md)"
     ;;
 
   gcloud)
@@ -236,5 +236,4 @@ esac
 
 echo ""
 echo "📚 For more info, see:"
-echo "   - QUICKSTART.md for quick reference"
-echo "   - DEPLOYMENT.md for detailed instructions"
+echo "   - README.md for quick reference, deployment, and hosting instructions"
