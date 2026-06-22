@@ -1180,6 +1180,13 @@ tbody tr:hover,
   background: rgba(2, 6, 23, 0.9);
 }
 
+.planner-source-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
 .patrol-table-panel {
   grid-column: 1 / -1;
 }

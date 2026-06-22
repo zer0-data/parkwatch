@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import hashlib
 import json
@@ -425,14 +425,16 @@ def _trim_context_for_prompt(context: dict[str, Any]) -> dict[str, Any]:
 
 def _sanitize_claims(answer: str) -> str:
     sanitized = _repair_mojibake(answer)
-    sanitized = (
-        sanitized.replace("’", "'")
-        .replace("‘", "'")
-        .replace("“", '"')
-        .replace("”", '"')
-        .replace("–", "-")
-        .replace("—", "-")
-    )
+    mojibake_replacements = {
+        "\u00e2\u20ac\u2122": "'",
+        "\u00e2\u20ac\u02dc": "'",
+        "\u00e2\u20ac\u0153": '"',
+        "\u00e2\u20ac\u009d": '"',
+        "\u00e2\u20ac\u201c": "-",
+        "\u00e2\u20ac\u201d": "-",
+    }
+    for needle, replacement in mojibake_replacements.items():
+        sanitized = sanitized.replace(needle, replacement)
     replacements = {
         r"\bmeasured congestion reduction\b": "modeled obstruction-exposure reduction",
         r"\bcongestion reduction\b": "obstruction-exposure planning",
@@ -461,9 +463,8 @@ def _sanitize_claims(answer: str) -> str:
     )
     return sanitized
 
-
 def _repair_mojibake(value: str) -> str:
-    if "â" not in value:
+    if "\u00c3\u00a2" not in value:
         return value
     try:
         return value.encode("latin-1").decode("utf-8")

@@ -172,3 +172,94 @@ class CopilotResponse(BaseModel):
     cached: bool = False
     evidence: list[CopilotEvidence]
     warnings: list[str]
+
+
+class PatrolCandidate(BaseModel):
+    grid_cell_id: str
+    latitude: float
+    longitude: float
+    location: str
+    context: str | None = None
+    station: str | None = None
+    predicted_violations: float = Field(alias="predictedViolations")
+    forecast_priority: float = Field(alias="forecastPriority")
+    obstruction_risk: float = Field(alias="obstructionRisk")
+    peak_window: str | None = Field(default=None, alias="peakWindow")
+
+    model_config = {"populate_by_name": True}
+
+
+class PatrolPlanRequest(BaseModel):
+    candidates: list[PatrolCandidate] = Field(min_length=1, max_length=10)
+
+
+class PatrolSegment(BaseModel):
+    from_cell_id: str
+    to_cell_id: str
+    distance_km: float
+    eta_minutes: float | None = None
+    source: str
+
+
+class PatrolStop(BaseModel):
+    stop: int
+    grid_cell_id: str
+    latitude: float
+    longitude: float
+    location: str
+    context: str | None = None
+    station: str | None = None
+    predicted_violations: float
+    forecast_priority: float
+    obstruction_risk: float
+    peak_window: str | None = None
+    mappls_label: str | None = None
+    nearby_context: list[str] = Field(default_factory=list)
+
+
+class PatrolPlanResponse(BaseModel):
+    route_mode: str
+    routing_source: str
+    total_distance_km: float
+    total_eta_minutes: float | None = None
+    fallback_reason: str | None = None
+    cached: bool = False
+    stops: list[PatrolStop]
+    segments: list[PatrolSegment]
+    route_geometry: list[tuple[float, float]]
+
+
+class DelayExposureRequest(BaseModel):
+    candidates: list[PatrolCandidate] = Field(min_length=1, max_length=20)
+    scenario_reduction: float = Field(default=0.2, ge=0, le=1)
+
+
+class DelayExposureItem(BaseModel):
+    rank: int
+    grid_cell_id: str
+    latitude: float
+    longitude: float
+    location: str
+    station: str | None = None
+    predicted_violations: float
+    forecast_priority: float
+    obstruction_risk: float
+    road_distance_km: float
+    traffic_eta_minutes: float | None = None
+    freeflow_eta_minutes: float | None = None
+    traffic_delay_minutes: float
+    estimated_delay_exposure_minutes: float
+    reduced_delay_exposure_minutes: float
+    road_importance_weight: float
+    parking_pressure_weight: float
+    confidence: str
+    source: str
+
+
+class DelayExposureResponse(BaseModel):
+    source: str
+    cached: bool = False
+    fallback_reason: str | None = None
+    total_delay_exposure_minutes: float
+    total_reduced_delay_exposure_minutes: float
+    items: list[DelayExposureItem]

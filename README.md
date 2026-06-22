@@ -1,6 +1,6 @@
 # ParkWatch
 
-ParkWatch is an AI-powered parking enforcement intelligence prototype for Bengaluru traffic teams. We built it for the hackathon problem statement on illegal parking hotspots and parking-induced obstruction: instead of showing only raw violations, ParkWatch turns the provided parking violation records into a command dashboard for hotspot detection, GraphSAGE forecasting, A*-optimized patrol sequencing, scenario planning, analyst explanations, and exportable action plans.
+ParkWatch is an AI-powered parking enforcement intelligence prototype for Bengaluru traffic teams. We built it for the hackathon problem statement on illegal parking hotspots and parking-induced obstruction: instead of showing only raw violations, ParkWatch turns the provided parking violation records into a command dashboard for hotspot detection, GraphSAGE forecasting, Mappls road-aware A* patrol sequencing, estimated traffic-delay exposure, analyst explanations, and exportable action plans.
 
 ## Live Demo
 
@@ -11,9 +11,10 @@ Recommended judge path after opening the link:
 1. Open `/dashboard`.
 2. Review top enforcement-priority hotspots.
 3. Switch to `Forecast` and show the GraphSAGE model/source.
-4. Open `Patrol Planner` and generate the A*-optimized stop sequence.
-5. Export the patrol CSV or compiled report.
-6. Visit `/methodology` and `/explainer` for the product and AI-engine walkthrough.
+4. Open `Patrol Planner` and generate the Mappls road-aware A* stop sequence.
+5. Open `Traffic Impact` to show estimated traffic-delay exposure.
+6. Export the patrol CSV or compiled report.
+7. Visit `/methodology` and `/explainer` for the product and AI-engine walkthrough.
 
 ## Product Pitch
 
@@ -22,8 +23,9 @@ Illegal on-street parking is operationally hard because teams often know the pro
 1. Detect repeated illegal-parking pressure zones.
 2. Forecast next-week observed violation pressure with GraphSAGE.
 3. Prioritize zones for targeted enforcement.
-4. Generate an A*-optimized patrol sequence over hotspot coordinates.
-5. Export a field-ready action plan for review or deployment.
+4. Generate a Mappls road-aware A* patrol sequence over forecast-priority stops.
+5. Estimate traffic-delay exposure using Mappls traffic ETA versus road-baseline ETA.
+6. Export a field-ready action plan for review or deployment.
 
 The product story is simple: ParkWatch helps traffic teams move from reactive patrols to targeted, evidence-led enforcement.
 
@@ -31,9 +33,10 @@ The product story is simple: ParkWatch helps traffic teams move from reactive pa
 
 - Hotspot intelligence: aggregates official parking violation records into grid cells and builds a spatial hotspot graph.
 - GraphSAGE forecast engine: prefers `forecast_graphsage.json` when present and ranks future observed violation pressure from hotspot and neighbor context.
-- A* patrol planner: selects top forecast-priority zones and sequences them with A* using haversine distance as the heuristic.
-- Leaflet visualization: numbered patrol markers, route polyline, stop details, coverage metrics, and CSV export.
-- Scenario impact engine: compares modeled obstruction-exposure coverage under targeted enforcement assumptions.
+- Mappls road-aware A* patrol planner: selects top forecast-priority zones and sequences them with Mappls ETA or road distance as the edge cost, with haversine fallback.
+- Leaflet visualization: numbered patrol markers, road-following route geometry when available, stop details, coverage metrics, and CSV export.
+- Traffic Delay Exposure Engine: compares Mappls traffic ETA with road-baseline ETA around selected hotspots, then weights the delay by GraphSAGE pressure and obstruction severity.
+- Scenario impact engine: compares estimated delay exposure and modeled obstruction-exposure coverage under targeted enforcement assumptions.
 - Analyst copilot: backend-powered analyst responses with a local analyst generator fallback.
 - Reports and exports: forecast CSV, patrol CSV, hotspot action lists, scenario tables, and compiled report text.
 
@@ -53,20 +56,29 @@ When `backend/app/data/processed/forecast_graphsage.json` exists, the backend se
 
 ### A* Patrol Planner
 
-The patrol planner uses the forecast-priority locations as nodes in a coordinate enforcement graph. Edge cost is haversine distance between stops. The A* heuristic is also haversine distance to remaining target coverage. This is useful for a hackathon prototype because we already have coordinates and can generate a credible patrol sequence without introducing external road-network data.
+The patrol planner uses forecast-priority locations as enforcement stops. When Mappls is configured, A* uses Mappls traffic ETA or road distance as the edge cost and renders returned route geometry. If Mappls is unavailable or quota-limited, ParkWatch falls back to the original haversine coordinate A* so the demo still works.
+
+### Mappls Road Intelligence Layer
+
+Mappls adds road-aware patrol distance, estimated patrol travel time, route geometry, reverse-geocoded stop labels, and nearby context for selected hotspots. OSM/Leaflet remains the resilient visualization fallback.
 
 ### Scenario Impact Engine
 
-Scenario controls estimate how targeted enforcement choices change modeled obstruction-exposure coverage across selected hotspots and the citywide hotspot set. These are planning proxies, not measured traffic-flow outcomes.
+Scenario controls estimate how targeted enforcement choices change estimated traffic-delay exposure and modeled obstruction-exposure coverage across selected hotspots. These are planning heuristics, not measured traffic-flow outcomes.
+
+### Traffic Delay Exposure Engine
+
+For selected forecast-priority hotspots, ParkWatch compares Mappls traffic ETA with a road-baseline ETA on a short local corridor. The traffic delta is combined with GraphSAGE predicted violations, obstruction severity, peak-window evidence, and road-importance weighting. If Mappls traffic data is unavailable, the engine falls back to OSM/OSRM or a transparent haversine heuristic.
 
 ## Interpretation Note
 
-ParkWatch uses provided parking violation records for planning intelligence. The A* planner runs on a coordinate hotspot graph, not a road-network graph. Road-speed, measured-delay, minutes-saved, and exact congestion-reduction claims require additional traffic-flow or road-network data.
+ParkWatch uses provided parking violation records for planning intelligence and Mappls/OSM road intelligence for routing and estimated traffic-delay exposure. The delay figures are planning heuristics, not measured public delay or verified minutes saved.
 
 ## Tech Stack
 
 - Backend: FastAPI, Uvicorn, Pydantic, HTTPX
 - Frontend: Next.js, React, TypeScript, Leaflet, Recharts
+- Maps and routing: Mappls REST APIs for road-aware patrol planning, Leaflet/OSM fallback visualization
 - ML/offline scripts: Python preprocessing, GraphSAGE training/export scripts, forecast artifact support
 - Runtime/deployment: Docker Compose with backend, frontend, and nginx
 - Optional copilot: Hugging Face Inference Providers token read by the backend only
@@ -79,6 +91,7 @@ frontend/                 Next.js dashboard, maps, reports, planner, pages
 scripts/                  Offline preprocessing and ML artifact scripts
 data/                     Local official dataset storage, ignored by git
 backend/app/data/processed/ Generated JSON artifacts, ignored by git
+backend/app/data/cache/     Mappls response cache, ignored by git
 docs/                     Deployment reference assets
 docker-compose.yml        Local full-stack Docker runtime
 Dockerfile.backend        Backend image
@@ -209,9 +222,11 @@ Example values:
 HF_TOKEN=hf_your_token_here
 HF_MODEL=Qwen/Qwen2.5-7B-Instruct:cheapest
 HF_TIMEOUT_SECONDS=8
+MAPPLS_REST_KEY=your_mappls_rest_key_here
+MAPPLS_TIMEOUT_SECONDS=8
 ```
 
-Do not commit `.env` or expose the token in frontend environment variables.
+Do not commit `.env` or expose tokens in frontend environment variables. Mappls REST calls go through the FastAPI backend and are cached under `backend/app/data/cache/` so repeated demos do not burn quota.
 
 ## Verification Commands
 
@@ -239,6 +254,10 @@ GET /api/hotspots/{cell_id}
 GET /api/stations
 GET /api/graph/{cell_id}
 GET /api/forecast?limit=100
+POST /api/mappls/patrol-plan
+POST /api/mappls/delay-exposure
+GET /api/mappls/reverse-geocode?lat=12.97&lon=77.59
+GET /api/mappls/nearby?lat=12.97&lon=77.59
 GET /api/temporal/hourly
 GET /api/temporal/weekday
 GET /api/temporal/heatmap
@@ -251,5 +270,5 @@ POST /api/copilot
 
 - Keep the demo link current in the Live Demo section.
 - Keep `data/`, `backend/app/data/processed/`, and `.env` out of git unless the hosting strategy explicitly changes.
-- The public product claim should stay focused on enforcement intelligence, forecast-priority zones, A* patrol planning, and obstruction-exposure planning.
-- Avoid claiming measured congestion reduction, measured delay reduction, or minutes saved from the current CSV alone.
+- The public product claim should stay focused on enforcement intelligence, forecast-priority zones, Mappls road-aware patrol planning, estimated traffic-delay exposure, and obstruction-exposure planning.
+- Avoid claiming measured congestion reduction, measured delay reduction, or verified minutes saved.

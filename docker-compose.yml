@@ -13,6 +13,9 @@ services:
       - HF_TOKEN=${HF_TOKEN:-}
       - HF_MODEL=${HF_MODEL:-Qwen/Qwen2.5-7B-Instruct:cheapest}
       - HF_TIMEOUT_SECONDS=${HF_TIMEOUT_SECONDS:-8}
+      - MAPPLS_REST_KEY=${MAPPLS_REST_KEY:-}
+      - MAPPLS_BASE_URL=${MAPPLS_BASE_URL:-https://apis.mappls.com/advancedmaps/v1}
+      - MAPPLS_TIMEOUT_SECONDS=${MAPPLS_TIMEOUT_SECONDS:-8}
     volumes:
       - ./backend:/app/backend:z
       - ./scripts:/app/scripts:z

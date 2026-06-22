@@ -16,6 +16,7 @@ const API_BASE =
   process.env.BACKEND_URL ??
   process.env.NEXT_PUBLIC_API_BASE_URL ??
   "http://127.0.0.1:8000";
+const DASHBOARD_HOTSPOT_LIMIT = 750;
 
 async function getJson<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {
@@ -33,7 +34,7 @@ async function getJson<T>(path: string): Promise<T> {
 export async function getDashboardData() {
   const [summary, hotspots, stations, hourly, weekday, heatmap, forecast] = await Promise.all([
     getJson<Summary>("/api/summary"),
-    getJson<Hotspot[]>("/api/hotspots?limit=10000"),
+    getJson<Hotspot[]>(`/api/hotspots?limit=${DASHBOARD_HOTSPOT_LIMIT}`),
     getJson<StationSummary[]>("/api/stations"),
     getJson<TemporalHour[]>("/api/temporal/hourly"),
     getJson<TemporalWeekday[]>("/api/temporal/weekday"),

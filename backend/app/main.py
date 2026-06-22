@@ -7,9 +7,13 @@ from .models import (
     CellGraphResponse,
     CopilotRequest,
     CopilotResponse,
+    DelayExposureRequest,
+    DelayExposureResponse,
     ForecastResponse,
     HealthResponse,
     Hotspot,
+    PatrolPlanRequest,
+    PatrolPlanResponse,
     StationSummary,
     SummaryResponse,
     TemporalHeatmapPoint,
@@ -19,6 +23,12 @@ from .models import (
     WeeklyTimeseriesPoint,
 )
 from .services.copilot import answer_copilot
+from .services.mappls import (
+    build_delay_exposure,
+    build_patrol_plan,
+    nearby_context,
+    reverse_geocode,
+)
 from .services.precomputed_store import (
     PrecomputedDataError,
     get_store,
@@ -31,6 +41,11 @@ app = FastAPI(
     version="0.1.0",
     description="Read-only API over ParkWatch precomputed official-dataset JSON outputs.",
 )
+
+
+@app.on_event("startup")
+def warm_precomputed_store() -> None:
+    get_store()
 
 
 @app.exception_handler(PrecomputedDataError)
@@ -128,3 +143,29 @@ def forecast(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, object
 async def copilot(request: CopilotRequest, response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store"
     return await answer_copilot(request, get_store())
+
+
+@app.post("/api/mappls/patrol-plan", response_model=PatrolPlanResponse)
+def mappls_patrol_plan(request: PatrolPlanRequest) -> dict[str, object]:
+    return build_patrol_plan(request.candidates)
+
+
+@app.post("/api/mappls/delay-exposure", response_model=DelayExposureResponse)
+def mappls_delay_exposure(request: DelayExposureRequest) -> dict[str, object]:
+    return build_delay_exposure(request.candidates, request.scenario_reduction)
+
+
+@app.get("/api/mappls/reverse-geocode")
+def mappls_reverse_geocode(
+    lat: float = Query(ge=-90, le=90),
+    lon: float = Query(ge=-180, le=180),
+) -> dict[str, object]:
+    return reverse_geocode(lat, lon)
+
+
+@app.get("/api/mappls/nearby")
+def mappls_nearby(
+    lat: float = Query(ge=-90, le=90),
+    lon: float = Query(ge=-180, le=180),
+) -> dict[str, object]:
+    return nearby_context(lat, lon)

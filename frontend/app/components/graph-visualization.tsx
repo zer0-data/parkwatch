@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useMemo } from "react";
 import type { Hotspot, GraphEdge } from "../lib/types";
@@ -181,7 +181,7 @@ export function GraphVisualization({
           <span className="stat-value">
             {neighbors.length > 0 
               ? (neighbors.reduce((sum, n) => sum + n.obstruction_risk_score, 0) / neighbors.length).toFixed(1)
-              : "—"}
+              : "n/a"}
           </span>
         </div>
       </div>

@@ -243,7 +243,7 @@ export function DashboardShell({
           <Tab value="heatmap" label="Heatmap View" />
           <Tab value="forecast" label="Forecast" />
           <Tab value="planner" label="Patrol Planner" />
-          <Tab value="impact" label="Impact Proxy" />
+          <Tab value="impact" label="Traffic Impact" />
           <Tab value="report" label="Report" />
         </Tabs>
       </Box>
@@ -334,7 +334,7 @@ export function DashboardShell({
       )}
 
       {activeTab === "impact" && (
-        <ImpactScenarioPanel hotspots={filteredHotspots} allHotspots={hotspots} />
+        <ImpactScenarioPanel hotspots={filteredHotspots} allHotspots={hotspots} forecast={forecast} />
       )}
       {activeTab === "planner" && (
         <PatrolPlanner hotspots={filteredHotspots} forecast={forecast} />

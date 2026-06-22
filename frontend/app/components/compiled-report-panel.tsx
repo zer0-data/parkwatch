@@ -1,7 +1,15 @@
 "use client";
 
-import type { ForecastResponse, Hotspot, StationSummary, Summary } from "../lib/types";
+import { useEffect, useMemo, useState } from "react";
+import type {
+  DelayExposureResponse,
+  ForecastResponse,
+  Hotspot,
+  StationSummary,
+  Summary
+} from "../lib/types";
 import { hotspotName } from "../lib/hotspot-labels";
+import { buildDelayCandidates } from "../lib/delay-candidates";
 import {
   buildImpactEstimates,
   ENFORCEMENT_SCENARIOS,
@@ -35,9 +43,46 @@ export function CompiledReportPanel({
   const topHotspots = hotspots.slice(0, 8);
   const topForecasts = forecast.items.slice(0, 8);
   const leadingStation = stations[0];
+  const [delayExposure, setDelayExposure] = useState<DelayExposureResponse | null>(null);
+  const delayCandidates = useMemo(
+    () => buildDelayCandidates(hotspots, forecast, 8),
+    [forecast, hotspots]
+  );
   const filteredReductionPct =
     filteredExposure > 0 ? (topTenReducedExposure / filteredExposure) * 100 : 0;
   const cityReductionPct = cityExposure > 0 ? (topTenReducedExposure / cityExposure) * 100 : 0;
+
+  useEffect(() => {
+    if (!delayCandidates.length) {
+      setDelayExposure(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    fetch("/api/backend/mappls/delay-exposure", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({
+        candidates: delayCandidates,
+        scenario_reduction: moderateScenario.repeatViolationReduction
+      }),
+      cache: "no-store",
+      signal: controller.signal
+    })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: DelayExposureResponse | null) => setDelayExposure(payload))
+      .catch((error) => {
+        if (error.name !== "AbortError") {
+          setDelayExposure(null);
+        }
+      });
+
+    return () => controller.abort();
+  }, [delayCandidates, moderateScenario.repeatViolationReduction]);
+
   const reportText = buildReportText({
     summary,
     topHotspots,
@@ -47,7 +92,8 @@ export function CompiledReportPanel({
     forecast,
     topTenReducedExposure,
     filteredReductionPct,
-    cityReductionPct
+    cityReductionPct,
+    delayExposure
   });
 
   const downloadReport = () => {
@@ -65,15 +111,15 @@ export function CompiledReportPanel({
         <div className="section-heading">
           <div>
             <p className="eyebrow">Compiled report</p>
-            <h2>Official-data-only operational brief</h2>
+            <h2>Forecast and road-intelligence brief</h2>
           </div>
           <button className="export-button" type="button" onClick={downloadReport}>
             Download TXT
           </button>
         </div>
         <p className="muted">
-          This report is generated locally from the loaded backend JSON. It uses no
-          external model API and does not claim measured congestion reduction.
+          This report combines loaded ParkWatch analytics with Mappls road-intelligence
+          estimates when available. It does not claim measured congestion reduction.
         </p>
         <div className="report-metrics">
           <span>
@@ -111,7 +157,8 @@ function buildReportText({
   forecast,
   topTenReducedExposure,
   filteredReductionPct,
-  cityReductionPct
+  cityReductionPct,
+  delayExposure
 }: {
   summary: Summary;
   topHotspots: Hotspot[];
@@ -122,10 +169,11 @@ function buildReportText({
   topTenReducedExposure: number;
   filteredReductionPct: number;
   cityReductionPct: number;
+  delayExposure: DelayExposureResponse | null;
 }) {
   const lines = [
     "ParkWatch Compiled Report",
-    "Official parking-violation dataset only",
+    "GraphSAGE forecast priority with Mappls/OSM road-intelligence estimates",
     "",
     "Compliance note:",
     "ParkWatch reports obstruction-risk and enforcement-priority proxies. It does not prove measured congestion, measured delay, minutes saved, or percentage congestion reduction.",
@@ -152,6 +200,21 @@ function buildReportText({
     `- Rolling MAPE: ${forecast.holdout.mape?.toFixed(1) ?? "n/a"}%`,
     `- Evaluation points: ${forecast.holdout.evaluated_points.toLocaleString("en-IN")}`,
     "",
+    "Estimated traffic-delay exposure:",
+    delayExposure
+      ? `- Source: ${delayExposure.source}${delayExposure.cached ? " (cached)" : ""}`
+      : "- Source: not yet loaded",
+    delayExposure
+      ? `- Total estimated delay exposure: ${Math.round(delayExposure.total_delay_exposure_minutes).toLocaleString("en-IN")} minutes`
+      : "- Total estimated delay exposure: n/a",
+    delayExposure
+      ? `- Moderate scenario reduced exposure: ${Math.round(delayExposure.total_reduced_delay_exposure_minutes).toLocaleString("en-IN")} minutes`
+      : "- Moderate scenario reduced exposure: n/a",
+    ...(delayExposure?.items.slice(0, 5).map(
+      (item) =>
+        `  ${item.rank}. ${item.location} | traffic ETA ${item.traffic_eta_minutes?.toFixed(1) ?? "n/a"} min | baseline ${item.freeflow_eta_minutes?.toFixed(1) ?? "n/a"} min | exposure ${Math.round(item.estimated_delay_exposure_minutes).toLocaleString("en-IN")} min | ${item.source}`
+    ) ?? []),
+    "",
     "Top forecast-priority zones:",
     ...topForecasts.map(
       (item, index) =>
@@ -165,8 +228,8 @@ function buildReportText({
     `- Share of citywide obstruction-exposure proxy: ${formatPct(cityReductionPct)}`,
     "",
     "Recommended wording:",
-    "Use: modeled obstruction-exposure reduction, obstruction-risk proxy, enforcement-priority candidate.",
-    "Avoid: measured congestion hotspot, congestion reduced by X%, minutes saved, measured delay avoided."
+    "Use: estimated traffic-delay exposure, parking-attributed delay proxy, modeled obstruction-exposure reduction, enforcement-priority candidate.",
+    "Avoid: measured congestion hotspot, congestion reduced by X%, measured minutes saved, measured delay avoided."
   ];
 
   return lines.join("\n");

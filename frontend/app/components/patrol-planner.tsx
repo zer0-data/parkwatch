@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { ForecastItem, ForecastResponse, Hotspot } from "../lib/types";
+import type { ForecastItem, ForecastResponse, Hotspot, PatrolPlanResponse } from "../lib/types";
 import { forecastHotspotContext, forecastHotspotName, hotspotContext, hotspotName } from "../lib/hotspot-labels";
 
 type PatrolPlannerProps = {
@@ -32,6 +32,8 @@ const EARTH_RADIUS_KM = 6371;
 
 export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
   const [stopCount, setStopCount] = useState(DEFAULT_STOP_COUNT);
+  const [roadPlan, setRoadPlan] = useState<PatrolPlanResponse | null>(null);
+  const [plannerStatus, setPlannerStatus] = useState<"loading" | "ready" | "fallback">("loading");
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<L.LayerGroup | null>(null);
 
@@ -40,17 +42,65 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
     [forecast, hotspots, stopCount]
   );
 
-  const route = useMemo(() => buildAStarRoute(candidates), [candidates]);
-  const totalDistanceKm = routeDistanceKm(route);
-  const coveredPredictedViolations = route.reduce(
-    (sum, item) => sum + item.predictedViolations,
+  const fallbackRoute = useMemo(() => buildAStarRoute(candidates), [candidates]);
+  const planStops = roadPlan?.stops ?? [];
+  const displayStops = planStops.length > 0 ? planStops : fallbackRoute.map(localStop);
+  const totalDistanceKm = roadPlan?.total_distance_km ?? routeDistanceKm(fallbackRoute);
+  const totalEtaMinutes = roadPlan?.total_eta_minutes ?? null;
+  const routeGeometry =
+    roadPlan?.route_geometry && roadPlan.route_geometry.length > 1
+      ? roadPlan.route_geometry
+      : fallbackRoute.map((item) => [item.latitude, item.longitude] as [number, number]);
+  const coveredPredictedViolations = displayStops.reduce(
+    (sum, item) => sum + item.predicted_violations,
     0
   );
-  const coveredPriority = route.reduce((sum, item) => sum + item.forecastPriority, 0);
+  const coveredPriority = displayStops.reduce((sum, item) => sum + item.forecast_priority, 0);
   const averageExposure =
-    route.length > 0
-      ? route.reduce((sum, item) => sum + item.obstructionRisk, 0) / route.length
+    displayStops.length > 0
+      ? displayStops.reduce((sum, item) => sum + item.obstruction_risk, 0) / displayStops.length
       : 0;
+  const routingSource = roadPlan?.routing_source ?? "Haversine fallback";
+  const isFallback = !roadPlan || roadPlan.route_mode === "haversine_fallback";
+
+  useEffect(() => {
+    if (candidates.length === 0) {
+      setRoadPlan(null);
+      setPlannerStatus("fallback");
+      return;
+    }
+
+    const controller = new AbortController();
+    setPlannerStatus("loading");
+
+    fetch("/api/backend/mappls/patrol-plan", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ candidates }),
+      cache: "no-store",
+      signal: controller.signal
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Patrol plan request failed (${response.status})`);
+        }
+        return response.json() as Promise<PatrolPlanResponse>;
+      })
+      .then((plan) => {
+        setRoadPlan(plan);
+        setPlannerStatus(plan.route_mode === "haversine_fallback" ? "fallback" : "ready");
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        setRoadPlan(null);
+        setPlannerStatus("fallback");
+      });
+
+    return () => controller.abort();
+  }, [candidates]);
 
   useEffect(() => {
     if (!mapRef.current) {
@@ -76,17 +126,17 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
 
     layerRef.current.clearLayers();
 
-    if (!route.length) return;
+    if (!displayStops.length) return;
 
-    const points = route.map((item) => [item.latitude, item.longitude] as [number, number]);
+    const points = routeGeometry;
     L.polyline(points, {
-      color: "#2dd4bf",
+      color: isFallback ? "#f59e0b" : "#2dd4bf",
       weight: 4,
       opacity: 0.9,
-      dashArray: "8 8"
+      dashArray: isFallback ? "8 8" : undefined
     }).addTo(layerRef.current);
 
-    route.forEach((item, index) => {
+    displayStops.forEach((item, index) => {
       const marker = L.marker([item.latitude, item.longitude], {
         icon: L.divIcon({
           className: "patrol-stop-icon",
@@ -99,15 +149,16 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
       marker.bindPopup(`
         <div class="popup-content">
           <strong>Stop ${index + 1}: ${escapeHtml(item.location)}</strong>
-          <p>${escapeHtml(item.station)}</p>
-          <p>Predicted violations: ${item.predictedViolations.toFixed(1)}</p>
-          <p>Forecast priority: ${item.forecastPriority.toFixed(1)}</p>
+          <p>${escapeHtml(item.station ?? "Unknown")}</p>
+          <p>Predicted violations: ${item.predicted_violations.toFixed(1)}</p>
+          <p>Forecast priority: ${item.forecast_priority.toFixed(1)}</p>
+          <p>${escapeHtml(routingSource)}</p>
         </div>
       `);
     });
 
     mapRef.current.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 });
-  }, [route]);
+  }, [displayStops, isFallback, routeGeometry, routingSource]);
 
   const exportCsv = () => {
     const header = [
@@ -120,20 +171,33 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
       "predicted_violations",
       "forecast_priority",
       "obstruction_risk",
-      "peak_window"
+      "peak_window",
+      "road_distance_km",
+      "eta_minutes",
+      "routing_source",
+      "mappls_label",
+      "nearby_context"
     ];
-    const rows = route.map((item, index) => [
+    const rows = displayStops.map((item, index) => {
+      const segment = index === 0 ? null : roadPlan?.segments[index - 1] ?? null;
+      return [
       index + 1,
       item.location,
-      item.station,
+      item.station ?? "Unknown",
       item.grid_cell_id,
       item.latitude,
       item.longitude,
-      item.predictedViolations.toFixed(1),
-      item.forecastPriority.toFixed(1),
-      item.obstructionRisk.toFixed(1),
-      item.peakWindow
-    ]);
+      item.predicted_violations.toFixed(1),
+      item.forecast_priority.toFixed(1),
+      item.obstruction_risk.toFixed(1),
+      item.peak_window ?? "",
+      segment?.distance_km.toFixed(3) ?? "",
+      segment?.eta_minutes?.toFixed(1) ?? "",
+      routingSource,
+      item.mappls_label ?? "",
+      item.nearby_context.join("; ")
+      ];
+    });
     const csv = [header, ...rows]
       .map((row) =>
         row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(",")
@@ -152,7 +216,7 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
       <div className="panel patrol-intro">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">A*-optimized patrol sequence</p>
+            <p className="eyebrow">Road-aware A* patrol sequence</p>
             <h2>Forecast-aware enforcement planner</h2>
           </div>
           <div className="table-actions">
@@ -177,18 +241,22 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
           </div>
         </div>
         <p>
-          ParkWatch turns forecast-priority zones into a targeted enforcement plan.
-          A* runs on a coordinate graph of selected hotspots, using haversine distance as
-          its geographic heuristic.
+          ParkWatch turns GraphSAGE forecast-priority zones into a targeted enforcement
+          plan. A* sequences selected hotspots with Mappls road ETA or road distance when
+          available, then falls back to haversine coordinate distance if needed.
         </p>
         <div className="forecast-metrics secondary">
           <span>
-            <strong>{route.length}</strong>
+            <strong>{displayStops.length}</strong>
             Patrol stops
           </span>
           <span>
+            <strong>{totalEtaMinutes === null ? "n/a" : `${totalEtaMinutes.toFixed(0)} min`}</strong>
+            Road-aware ETA
+          </span>
+          <span>
             <strong>{totalDistanceKm.toFixed(1)} km</strong>
-            Straight-line distance proxy
+            {isFallback ? "Straight-line fallback" : "Road distance"}
           </span>
           <span>
             <strong>{coveredPredictedViolations.toFixed(1)}</strong>
@@ -198,6 +266,12 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
             <strong>{averageExposure.toFixed(1)}</strong>
             Avg obstruction exposure
           </span>
+        </div>
+        <div className="planner-source-row">
+          <span className="pill">{routingSource}</span>
+          {plannerStatus === "loading" && <span className="pill">Planning route...</span>}
+          {roadPlan?.cached && <span className="pill">Cached</span>}
+          {roadPlan?.fallback_reason && <span className="pill">{roadPlan.fallback_reason}</span>}
         </div>
       </div>
 
@@ -227,7 +301,7 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
               </tr>
             </thead>
             <tbody>
-              {route.map((item, index) => (
+              {displayStops.map((item, index) => (
                 <tr key={item.grid_cell_id}>
                   <td>
                     <span className="patrol-stop-badge">{index + 1}</span>
@@ -235,20 +309,24 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
                   <td>
                     <strong className="location-name">{item.location}</strong>
                     <span className="cell-meta">{item.context}</span>
+                    {item.nearby_context.length > 0 && (
+                      <span className="cell-meta">{item.nearby_context.join(" | ")}</span>
+                    )}
                   </td>
-                  <td>{item.station}</td>
-                  <td>{item.predictedViolations.toFixed(1)}</td>
-                  <td>{item.forecastPriority.toFixed(1)}</td>
-                  <td>{item.obstructionRisk.toFixed(1)}</td>
-                  <td>{item.peakWindow}</td>
+                  <td>{item.station ?? "Unknown"}</td>
+                  <td>{item.predicted_violations.toFixed(1)}</td>
+                  <td>{item.forecast_priority.toFixed(1)}</td>
+                  <td>{item.obstruction_risk.toFixed(1)}</td>
+                  <td>{item.peak_window ?? "Unknown"}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <p className="muted">
-          This is A* over dataset-derived hotspot coordinates. It is designed for patrol
-          sequencing and map visualization, not road-network shortest-path routing.
+          {isFallback
+            ? "Fallback route uses coordinate distance because Mappls road intelligence is unavailable."
+            : "Road-aware patrol routing uses Mappls ETA or distance. Congestion impact claims still require traffic-flow validation."}
         </p>
       </div>
     </section>
@@ -303,6 +381,24 @@ function hotspotCandidate(hotspot: Hotspot): PatrolCandidate {
     obstructionRisk: hotspot.obstruction_risk_score,
     peakWindow: formatPeakWindow(hotspot),
     source: "hotspot"
+  };
+}
+
+function localStop(item: PatrolCandidate, index: number) {
+  return {
+    stop: index + 1,
+    grid_cell_id: item.grid_cell_id,
+    latitude: item.latitude,
+    longitude: item.longitude,
+    location: item.location,
+    context: item.context,
+    station: item.station,
+    predicted_violations: item.predictedViolations,
+    forecast_priority: item.forecastPriority,
+    obstruction_risk: item.obstructionRisk,
+    peak_window: item.peakWindow,
+    mappls_label: null,
+    nearby_context: []
   };
 }
 

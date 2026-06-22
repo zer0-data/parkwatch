@@ -156,3 +156,70 @@ export type CopilotResponse = {
   evidence: { label: string; value: string }[];
   warnings: string[];
 };
+
+export type PatrolPlanStop = {
+  stop: number;
+  grid_cell_id: string;
+  latitude: number;
+  longitude: number;
+  location: string;
+  context: string | null;
+  station: string | null;
+  predicted_violations: number;
+  forecast_priority: number;
+  obstruction_risk: number;
+  peak_window: string | null;
+  mappls_label: string | null;
+  nearby_context: string[];
+};
+
+export type PatrolPlanSegment = {
+  from_cell_id: string;
+  to_cell_id: string;
+  distance_km: number;
+  eta_minutes: number | null;
+  source: string;
+};
+
+export type PatrolPlanResponse = {
+  route_mode: "mappls_traffic_eta" | "mappls_road_distance" | "haversine_fallback" | string;
+  routing_source: string;
+  total_distance_km: number;
+  total_eta_minutes: number | null;
+  fallback_reason: string | null;
+  cached: boolean;
+  stops: PatrolPlanStop[];
+  segments: PatrolPlanSegment[];
+  route_geometry: [number, number][];
+};
+
+export type DelayExposureItem = {
+  rank: number;
+  grid_cell_id: string;
+  latitude: number;
+  longitude: number;
+  location: string;
+  station: string | null;
+  predicted_violations: number;
+  forecast_priority: number;
+  obstruction_risk: number;
+  road_distance_km: number;
+  traffic_eta_minutes: number | null;
+  freeflow_eta_minutes: number | null;
+  traffic_delay_minutes: number;
+  estimated_delay_exposure_minutes: number;
+  reduced_delay_exposure_minutes: number;
+  road_importance_weight: number;
+  parking_pressure_weight: number;
+  confidence: string;
+  source: string;
+};
+
+export type DelayExposureResponse = {
+  source: string;
+  cached: boolean;
+  fallback_reason: string | null;
+  total_delay_exposure_minutes: number;
+  total_reduced_delay_exposure_minutes: number;
+  items: DelayExposureItem[];
+};

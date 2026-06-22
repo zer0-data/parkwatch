@@ -28,6 +28,8 @@ class PrecomputedStore:
             "cell_timeseries.json"
         )
         self.edges_by_cell = self._index_edges(self.edges)
+        self._summary = self._build_summary()
+        self._stations = self._build_stations()
 
     def _load_json(self, filename: str) -> Any:
         path = self.data_dir / filename
@@ -115,6 +117,9 @@ class PrecomputedStore:
         return precomputed_files_ready(self.data_dir)
 
     def summary(self) -> dict[str, Any]:
+        return self._summary
+
+    def _build_summary(self) -> dict[str, Any]:
         stations = {item.get("dominant_station") for item in self.hotspots}
         stations.discard(None)
         return {
@@ -161,6 +166,9 @@ class PrecomputedStore:
         return self.weekly_timeseries.get(cell_id, [])
 
     def stations(self) -> list[dict[str, Any]]:
+        return self._stations
+
+    def _build_stations(self) -> list[dict[str, Any]]:
         grouped: dict[str, dict[str, Any]] = {}
         for hotspot in self.hotspots:
             station = hotspot.get("dominant_station")

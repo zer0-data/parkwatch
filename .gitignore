@@ -232,6 +232,7 @@ generated/
 artifacts/
 backend/data/processed/
 backend/app/data/processed/
+backend/app/data/cache/
 frontend/public/generated/
 
 # Node / Next.js frontend

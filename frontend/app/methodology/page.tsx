@@ -23,18 +23,30 @@ const engines = [
   {
     name: "A* Patrol Planner",
     body:
-      "The planner chooses GraphSAGE forecast-priority zones, treats them as a coordinate enforcement graph, and runs A* with haversine distance as the heuristic. Leaflet visualizes the stop order, route line, and action list."
+      "The planner chooses GraphSAGE forecast-priority zones and runs A* with Mappls ETA or road distance as the edge cost. If Mappls is unavailable, ParkWatch falls back to haversine coordinate distance so the patrol plan still renders."
+  },
+  {
+    name: "Mappls Road Intelligence Layer",
+    body:
+      "Mappls enriches the patrol plan with road-aware distance, estimated patrol travel time, route geometry, reverse-geocoded stop labels, and nearby context for selected hotspots. Leaflet and OSM remain the resilient visualization fallback."
+  },
+  {
+    name: "Traffic Delay Exposure Engine",
+    body:
+      "For selected forecast-priority hotspots, ParkWatch compares Mappls traffic ETA with a road-baseline ETA on a short local corridor, then weights that delay by GraphSAGE predicted violations, obstruction severity, peak-window evidence, and road importance. If Mappls traffic data is unavailable, the engine falls back to OSM/OSRM or a transparent haversine heuristic."
   },
   {
     name: "Scenario Impact Engine",
     body:
-      "Scenario controls estimate how targeted enforcement choices change modeled obstruction-exposure coverage across selected hotspots and the citywide hotspot set."
+      "Scenario controls estimate how targeted enforcement choices change estimated traffic-delay exposure and modeled obstruction-exposure coverage across selected hotspots and the citywide hotspot set."
   }
 ];
 
 const decisionSignals = [
   "GraphSAGE forecast priority is the lead AI signal when forecast_graphsage.json is available.",
   "Predicted violations estimate next-week observed illegal-parking pressure for each hotspot.",
+  "Mappls road ETA and distance turn forecast-priority zones into a patrol route officers can follow.",
+  "Traffic-delay exposure estimates parking-attributed delay pressure by combining road ETA deltas with forecast and obstruction signals.",
   "Hotspot and enforcement scores remain interpretable baseline signals for ranking, filtering, and fallback behavior.",
   "Confidence describes evidence density from repeated records, active days, and device-days."
 ];
@@ -47,9 +59,9 @@ export default function MethodologyPage() {
           <p className="eyebrow">ParkWatch AI engine</p>
           <h1>From parking violations to targeted enforcement plans.</h1>
           <p>
-            ParkWatch combines hotspot analytics, graph forecasting, A* patrol
-            sequencing, and scenario planning to help traffic teams prioritize illegal
-            parking enforcement around Bengaluru.
+            ParkWatch combines hotspot analytics, graph forecasting, Mappls road-aware
+            A* patrol sequencing, and scenario planning to help traffic teams prioritize
+            illegal parking enforcement around Bengaluru.
           </p>
         </div>
       </section>
@@ -62,7 +74,7 @@ export default function MethodologyPage() {
             Next.js dashboard. The pipeline builds hotspot scores, graph features,
             GraphSAGE forecasts, temporal summaries, and export-ready JSON. The
             dashboard turns those outputs into maps, rankings, forecast-priority
-            zones, A* patrol plans, scenario comparisons, and reports.
+            zones, Mappls-enhanced patrol plans, scenario comparisons, and reports.
           </p>
         </article>
 
@@ -104,16 +116,20 @@ export default function MethodologyPage() {
 -> node features from volume, time, station, junction, validation, and neighbor context
 -> GraphSAGE neighborhood aggregation
 -> predicted violations and forecast priority
--> A* patrol sequence over top forecast-priority coordinates`}</pre>
+-> Mappls road ETA/distance matrix for selected stops
+-> A* patrol sequence with haversine fallback
+-> traffic-delay exposure estimate for selected hotspots`}</pre>
         </article>
 
         <article className="method-section wide">
           <h2>Interpretation Note</h2>
           <p>
             ParkWatch uses provided parking violation records for planning intelligence.
-            The A* planner runs on a dataset-derived coordinate hotspot graph, not a
-            road-network graph. Road-speed, measured-delay, and exact
-            congestion-reduction claims require additional traffic data.
+            Mappls road-aware routing estimates patrol travel time and road distance for
+            selected enforcement stops. Traffic-delay exposure is a planning estimate
+            based on Mappls/OSM route deltas and hotspot pressure, not a measured public
+            delay total. Verified minutes saved and exact congestion-reduction claims
+            still require traffic-flow validation.
           </p>
         </article>
       </section>

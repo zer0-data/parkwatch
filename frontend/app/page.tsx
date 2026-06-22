@@ -9,8 +9,8 @@ export default function LandingPage() {
           <h1>Plan targeted patrols for Bengaluru parking pressure.</h1>
           <p className="hero-subtitle">
             ParkWatch turns official parking violation records into hotspot maps,
-            GraphSAGE forecasts, A*-optimized patrol sequences, and exportable action
-            reports for traffic enforcement teams.
+            GraphSAGE forecasts, Mappls road-aware patrol sequences, and exportable
+            action reports for traffic enforcement teams.
           </p>
           <div className="hero-actions">
             <Link href="/dashboard" className="primary-button">
@@ -33,7 +33,7 @@ export default function LandingPage() {
           <div className="feature-card">
             <div className="feature-icon">NEXT</div>
             <h3>Forecast patrol plans</h3>
-            <p>GraphSAGE forecasts feed an A* sequence for priority patrol stops.</p>
+            <p>GraphSAGE forecasts feed a Mappls road-aware A* sequence for patrol stops.</p>
           </div>
         </div>
       </section>
