@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+// @ts-ignore
+import { mappls, mappls_plugin } from "mappls-web-maps";
 import type { ForecastItem, ForecastResponse, Hotspot, PatrolPlanResponse } from "../lib/types";
 import { forecastHotspotContext, forecastHotspotName, hotspotContext, hotspotName } from "../lib/hotspot-labels";
 
@@ -25,7 +25,7 @@ type PatrolCandidate = {
   source: "forecast" | "hotspot";
 };
 
-const BENGALURU_CENTER: [number, number] = [12.9716, 77.5946];
+const BENGALURU_CENTER = [12.9716, 77.5946];
 const DEFAULT_STOP_COUNT = 8;
 const MAX_STOP_COUNT = 10;
 const EARTH_RADIUS_KM = 6371;
@@ -34,8 +34,12 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
   const [stopCount, setStopCount] = useState(DEFAULT_STOP_COUNT);
   const [roadPlan, setRoadPlan] = useState<PatrolPlanResponse | null>(null);
   const [plannerStatus, setPlannerStatus] = useState<"loading" | "ready" | "fallback">("loading");
-  const mapRef = useRef<L.Map | null>(null);
-  const layerRef = useRef<L.LayerGroup | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapObjectRef = useRef<any>(null);
+  const mapplsRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const polylineRef = useRef<any>(null);
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   const candidates = useMemo(
     () => buildCandidates(hotspots, forecast).slice(0, stopCount),
@@ -103,62 +107,97 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
   }, [candidates]);
 
   useEffect(() => {
-    if (!mapRef.current) {
-      const map = L.map("patrol-planner-map").setView(BENGALURU_CENTER, 12);
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
-      }).addTo(map);
-      mapRef.current = map;
-      layerRef.current = L.layerGroup().addTo(map);
-    }
+    if (typeof window === "undefined" || !containerRef.current) return;
+    if (mapplsRef.current) return; // already initialized
+
+    const token = process.env.NEXT_PUBLIC_MAPPLS_TOKEN || "";
+    mapplsRef.current = new mappls();
+
+    mapplsRef.current.initialize(token, { map: true }, () => {
+      if (!mapObjectRef.current) {
+        mapObjectRef.current = mapplsRef.current.Map({
+          id: "patrol-planner-map",
+          center: BENGALURU_CENTER,
+          zoom: 12,
+          traffic: true,
+        });
+
+        setTimeout(() => setMapLoaded(true), 500);
+      }
+    });
 
     return () => {
-      mapRef.current?.remove();
-      mapRef.current = null;
-      layerRef.current = null;
+      if (markersRef.current.length > 0) {
+        markersRef.current.forEach(marker => {
+          try {
+            mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: marker });
+          } catch(e) {}
+        });
+        markersRef.current = [];
+      }
+      if (polylineRef.current) {
+        try {
+          mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: polylineRef.current });
+        } catch(e) {}
+        polylineRef.current = null;
+      }
     };
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || !layerRef.current) return;
+    if (!mapLoaded || !mapObjectRef.current || !mapplsRef.current) return;
 
-    layerRef.current.clearLayers();
+    // Clear old route
+    markersRef.current.forEach(marker => {
+      try {
+        mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: marker });
+      } catch(e) {}
+    });
+    markersRef.current = [];
+
+    if (polylineRef.current) {
+      try {
+        mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: polylineRef.current });
+      } catch(e) {}
+      polylineRef.current = null;
+    }
 
     if (!displayStops.length) return;
 
-    const points = routeGeometry;
-    L.polyline(points, {
-      color: isFallback ? "#f59e0b" : "#2dd4bf",
-      weight: 4,
-      opacity: 0.9,
-      dashArray: isFallback ? "8 8" : undefined
-    }).addTo(layerRef.current);
-
-    displayStops.forEach((item, index) => {
-      const marker = L.marker([item.latitude, item.longitude], {
-        icon: L.divIcon({
-          className: "patrol-stop-icon",
-          html: `<span>${index + 1}</span>`,
-          iconSize: [34, 34],
-          iconAnchor: [17, 17]
-        })
-      }).addTo(layerRef.current!);
-
-      marker.bindPopup(`
-        <div class="popup-content">
-          <strong>Stop ${index + 1}: ${escapeHtml(item.location)}</strong>
-          <p>${escapeHtml(item.station ?? "Unknown")}</p>
-          <p>Predicted violations: ${item.predicted_violations.toFixed(1)}</p>
-          <p>Forecast priority: ${item.forecast_priority.toFixed(1)}</p>
-          <p>${escapeHtml(routingSource)}</p>
-        </div>
-      `);
+    const points = routeGeometry.map((pt: any) => {
+      if (Array.isArray(pt)) return { lat: pt[0], lng: pt[1] };
+      if (pt.lat && pt.lng) return pt;
+      if (pt.latitude && pt.longitude) return { lat: pt.latitude, lng: pt.longitude };
+      return pt;
     });
 
-    mapRef.current.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 });
-  }, [displayStops, isFallback, routeGeometry, routingSource]);
+    polylineRef.current = new mapplsRef.current.Polyline({
+      map: mapObjectRef.current,
+      paths: points,
+      strokeColor: isFallback ? "#f59e0b" : "#2dd4bf",
+      strokeOpacity: 0.9,
+      strokeWeight: 4,
+      fitbounds: true,
+    });
+
+    displayStops.forEach((item, index) => {
+      const marker = new mapplsRef.current.Marker({
+        map: mapObjectRef.current,
+        position: { lat: item.latitude, lng: item.longitude },
+        html: `<div class="patrol-stop-icon" style="background: #1e293b; color: white; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); font-weight: bold;"><span>${index + 1}</span></div>`,
+        popupHtml: `
+          <div class="popup-content">
+            <strong>Stop ${index + 1}: ${escapeHtml(item.location)}</strong>
+            <p>${escapeHtml(item.station ?? "Unknown")}</p>
+            <p>Predicted violations: ${item.predicted_violations.toFixed(1)}</p>
+            <p>Forecast priority: ${item.forecast_priority.toFixed(1)}</p>
+            <p>${escapeHtml(routingSource)}</p>
+          </div>
+        `
+      });
+      markersRef.current.push(marker);
+    });
+  }, [displayStops, isFallback, routeGeometry, routingSource, mapLoaded]);
 
   const exportCsv = () => {
     const header = [

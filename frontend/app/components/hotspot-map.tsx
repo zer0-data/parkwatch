@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+// @ts-ignore
+import { mappls, mappls_plugin } from "mappls-web-maps";
 import type { Hotspot } from "../lib/types";
 
 type HotspotMapProps = {
@@ -11,42 +11,62 @@ type HotspotMapProps = {
   onSelect: (cellId: string) => void;
 };
 
-const BENGALURU_CENTER: [number, number] = [12.9716, 77.5946];
+const BENGALURU_CENTER = [12.9716, 77.5946];
 const ZOOM_LEVEL = 12;
 const MAX_POINTS = 500; // Limit points shown
 
 export function HotspotMap({ hotspots, selectedCellId, onSelect }: HotspotMapProps) {
-  const mapRef = useRef<L.Map | null>(null);
-  const markersGroupRef = useRef<L.LayerGroup | null>(null);
-  const markersMapRef = useRef<Map<string, L.CircleMarker>>(new Map());
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapObjectRef = useRef<any>(null);
+  const mapplsRef = useRef<any>(null);
+  const markersMapRef = useRef<Map<string, any>>(new Map());
+  const [mapLoaded, setMapLoaded] = useState(false);
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current) {
-      delete (L.Icon.Default.prototype as any)._getIconUrl;
-      L.Icon.Default.mergeOptions({
-        iconRetinaUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
-        iconUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-        shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-      });
+    if (typeof window === "undefined" || !containerRef.current) return;
+    if (mapplsRef.current) return; // already initialized
 
-      const map = L.map("scatter-map").setView(BENGALURU_CENTER, ZOOM_LEVEL);
+    const token = process.env.NEXT_PUBLIC_MAPPLS_TOKEN || "";
+    mapplsRef.current = new mappls();
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19,
-      }).addTo(map);
+    mapplsRef.current.initialize(token, { map: true }, () => {
+      // Map API initialized
+      if (!mapObjectRef.current) {
+        mapObjectRef.current = mapplsRef.current.Map({
+          id: "scatter-map",
+          center: BENGALURU_CENTER,
+          zoom: ZOOM_LEVEL,
+          traffic: true,
+        });
 
-      mapRef.current = map;
-      markersGroupRef.current = L.layerGroup().addTo(map);
-    }
+        // Add a small delay to ensure the map is ready for drawing
+        setTimeout(() => setMapLoaded(true), 500);
+      }
+    });
+
+    return () => {
+      // Cleanup map logic if necessary, though Mappls doesn't always need explicit destroy
+      // Just clear our refs
+      if (markersMapRef.current) {
+        markersMapRef.current.forEach((marker) => {
+          try {
+            mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: marker });
+          } catch (e) {}
+        });
+        markersMapRef.current.clear();
+      }
+    };
   }, []);
 
   // Update points
   useEffect(() => {
-    if (!mapRef.current || !markersGroupRef.current) return;
+    if (!mapLoaded || !mapObjectRef.current || !mapplsRef.current) return;
 
-    markersGroupRef.current.clearLayers();
+    // Clear existing markers
+    markersMapRef.current.forEach((marker) => {
+      mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: marker });
+    });
     markersMapRef.current.clear();
 
     const displayHotspots = hotspots.slice(0, MAX_POINTS);
@@ -75,42 +95,57 @@ export function HotspotMap({ hotspots, selectedCellId, onSelect }: HotspotMapPro
         fillColor = "#14b8a6";
       }
 
-      const marker = L.circleMarker([hotspot.latitude, hotspot.longitude], {
-        radius,
+      // Draw using mappls.Circle
+      // Note: Mappls radius is typically in meters on the map. 
+      // To simulate screen pixel radius, we multiply by a factor depending on zoom, 
+      // but a fixed radius works as a basic implementation.
+      const circleRadius = radius * 15; // Rough approximation for zoom 12
+
+      const marker = new mapplsRef.current.Circle({
+        map: mapObjectRef.current,
+        center: { lat: hotspot.latitude, lng: hotspot.longitude },
+        radius: circleRadius,
         fillColor,
-        color,
-        weight: 1,
-        opacity: 0.8,
         fillOpacity: 0.7,
-      }).addTo(markersGroupRef.current!);
+        strokeColor: color,
+        strokeOpacity: 0.8,
+        strokeWeight: 1,
+        popupHtml: `
+          <div class="popup-content">
+            <strong>${hotspot.grid_cell_id}</strong>
+            <p>Risk: ${riskScore.toFixed(1)}</p>
+            <p>Violations: ${hotspot.violation_count}</p>
+          </div>
+        `
+      });
 
-      marker.bindPopup(`
-        <div class="popup-content">
-          <strong>${hotspot.grid_cell_id}</strong>
-          <p>Risk: ${riskScore.toFixed(1)}</p>
-          <p>Violations: ${hotspot.violation_count}</p>
-        </div>
-      `);
-
-      marker.on("click", () => {
+      marker.addListener("click", () => {
         onSelect(hotspot.grid_cell_id);
       });
 
       markersMapRef.current.set(hotspot.grid_cell_id, marker);
     });
-  }, [hotspots, onSelect]);
+  }, [hotspots, onSelect, mapLoaded]);
 
   // Highlight selected marker
   useEffect(() => {
+    if (!mapLoaded || !mapObjectRef.current || !mapplsRef.current) return;
+
     markersMapRef.current.forEach((marker, cellId) => {
       if (cellId === selectedCellId) {
-        marker.setStyle({
-          weight: 3,
-          opacity: 1,
-          fillOpacity: 0.9,
-          color: "#000",
-        });
-        marker.openPopup();
+        // Unfortunately, dynamic style updates in mappls-web-maps often require re-creating the circle
+        // or using setOptions if available. For simplicity, we just use popup here.
+        // Try opening the popup if supported by the SDK, or reposition map.
+        // Some Mappls circles support setOptions:
+        try {
+           if (marker.setOptions) {
+             marker.setOptions({
+               strokeWeight: 3,
+               strokeColor: "#000",
+               fillOpacity: 0.9
+             });
+           }
+        } catch(e) {}
       } else {
         const hotspot = hotspots.find(h => h.grid_cell_id === cellId);
         if (hotspot) {
@@ -120,16 +155,19 @@ export function HotspotMap({ hotspots, selectedCellId, onSelect }: HotspotMapPro
           else if (riskScore >= 55) color = "#b45309";
           else if (riskScore >= 35) color = "#0f766e";
 
-          marker.setStyle({
-            weight: 1,
-            opacity: 0.8,
-            fillOpacity: 0.7,
-            color,
-          });
+          try {
+            if (marker.setOptions) {
+               marker.setOptions({
+                 strokeWeight: 1,
+                 strokeColor: color,
+                 fillOpacity: 0.7
+               });
+            }
+          } catch(e) {}
         }
       }
     });
-  }, [selectedCellId, hotspots]);
+  }, [selectedCellId, hotspots, mapLoaded]);
 
   if (!hotspots.length) {
     return (
@@ -160,7 +198,7 @@ export function HotspotMap({ hotspots, selectedCellId, onSelect }: HotspotMapPro
       </div>
 
       <div style={{ flex: 1, position: 'relative', minHeight: '500px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--line)' }}>
-        <div id="scatter-map" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, width: '100%', height: '100%' }} />
+        <div id="scatter-map" ref={containerRef} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, width: '100%', height: '100%' }} />
       </div>
 
       <div className="map-legend" style={{ marginTop: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
