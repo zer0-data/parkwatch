@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-// @ts-ignore
-import { mappls, mappls_plugin } from "mappls-web-maps";
+import React, { useEffect, useState } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import type { Hotspot } from "../lib/types";
 
 type InteractiveMapProps = {
@@ -11,7 +11,7 @@ type InteractiveMapProps = {
   onSelect: (cellId: string) => void;
 };
 
-const BENGALURU_CENTER = [12.9716, 77.5946];
+const BENGALURU_CENTER: [number, number] = [12.9716, 77.5946];
 const ZOOM_LEVEL = 12;
 
 export function InteractiveMap({
@@ -19,54 +19,47 @@ export function InteractiveMap({
   selectedCellId,
   onSelect,
 }: InteractiveMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapObjectRef = useRef<any>(null);
-  const mapplsRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, any>>(new Map());
-  const [mapLoaded, setMapLoaded] = useState(false);
+  const mapRef = React.useRef<L.Map | null>(null);
+  const markersRef = React.useRef<Map<string, L.CircleMarker>>(new Map());
+  const heatmapLayerRef = React.useRef<L.LayerGroup | null>(null);
 
   // Initialize map
   useEffect(() => {
-    if (typeof window === "undefined" || !containerRef.current) return;
-    if (mapplsRef.current) return; // already initialized
+    if (!mapRef.current) {
+      // Fix for react-leaflet icon issues
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl:
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+        iconUrl:
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+        shadowUrl:
+          "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+      });
 
-    const token = process.env.NEXT_PUBLIC_MAPPLS_TOKEN || "";
-    mapplsRef.current = new mappls();
+      const map = L.map("map").setView(BENGALURU_CENTER, ZOOM_LEVEL);
 
-    mapplsRef.current.initialize(token, { map: true }, () => {
-      if (!mapObjectRef.current) {
-        mapObjectRef.current = mapplsRef.current.Map({
-          id: "map",
-          center: BENGALURU_CENTER,
-          zoom: ZOOM_LEVEL,
-          traffic: true,
-        });
+      // Use OpenStreetMap (free)
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
 
-        setTimeout(() => setMapLoaded(true), 500);
-      }
-    });
+      mapRef.current = map;
 
-    return () => {
-      if (markersRef.current) {
-        markersRef.current.forEach((marker) => {
-          try {
-            mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: marker });
-          } catch (e) {}
-        });
-        markersRef.current.clear();
-      }
-    };
+      // Add heatmap layer group
+      heatmapLayerRef.current = L.layerGroup().addTo(map);
+    }
   }, []);
 
   // Update markers when hotspots change
   useEffect(() => {
-    if (!mapLoaded || !mapObjectRef.current || !mapplsRef.current) return;
+    if (!mapRef.current || !heatmapLayerRef.current) return;
 
     // Clear existing markers
     markersRef.current.forEach((marker) => {
-      try {
-        mapplsRef.current.removeLayer({ map: mapObjectRef.current, layer: marker });
-      } catch(e) {}
+      heatmapLayerRef.current?.removeLayer(marker);
     });
     markersRef.current.clear();
 
@@ -87,66 +80,71 @@ export function InteractiveMap({
 
       // Size based on risk
       const radius = 6 + (riskScore / 100) * 10;
-      const circleRadius = radius * 20; // scale for map view
 
-      const marker = new mapplsRef.current.Circle({
-        map: mapObjectRef.current,
-        center: { lat: hotspot.latitude, lng: hotspot.longitude },
-        radius: circleRadius,
-        fillColor,
-        fillOpacity: 0.7,
-        strokeColor: color,
-        strokeOpacity: 0.8,
-        strokeWeight: 2,
-        popupHtml: `
-          <div class="popup-content">
-            <strong>${hotspot.grid_cell_id}</strong>
-            <p>Risk: ${riskScore.toFixed(1)}</p>
-            <p>Station: ${hotspot.dominant_station || "N/A"}</p>
-            <p>Count: ${hotspot.violation_count}</p>
-          </div>
-        `
-      });
+      const marker = L.circleMarker(
+        [hotspot.latitude, hotspot.longitude],
+        {
+          radius,
+          fillColor,
+          color,
+          weight: 2,
+          opacity: 0.8,
+          fillOpacity: 0.7,
+        }
+      ).addTo(heatmapLayerRef.current!);
+
+      // Popup with hotspot info
+      marker.bindPopup(`
+        <div class="popup-content">
+          <strong>${hotspot.grid_cell_id}</strong>
+          <p>Risk: ${riskScore.toFixed(1)}</p>
+          <p>Station: ${hotspot.dominant_station || "N/A"}</p>
+          <p>Count: ${hotspot.violation_count}</p>
+        </div>
+      `);
 
       // Click handler
-      marker.addListener("click", () => {
+      marker.on("click", () => {
         onSelect(hotspot.grid_cell_id);
       });
 
+      // Tooltip on hover
+      marker.bindTooltip(
+        `${hotspot.grid_cell_id}<br/>Risk: ${riskScore.toFixed(1)}`,
+        {
+          permanent: false,
+          direction: "top",
+          offset: [0, -20],
+        }
+      );
+
       markersRef.current.set(hotspot.grid_cell_id, marker);
     });
-  }, [hotspots, onSelect, mapLoaded]);
+  }, [hotspots, onSelect]);
 
   // Highlight selected marker
   useEffect(() => {
-    if (!mapLoaded || !mapObjectRef.current || !mapplsRef.current) return;
-
     markersRef.current.forEach((marker, cellId) => {
       if (cellId === selectedCellId) {
-        try {
-          if (marker.setOptions) {
-            marker.setOptions({
-              strokeWeight: 4,
-              fillOpacity: 0.9,
-            });
-          }
-        } catch(e) {}
+        marker.setStyle({
+          weight: 4,
+          opacity: 1,
+          fillOpacity: 0.9,
+        });
+        marker.openPopup();
       } else {
-        try {
-          if (marker.setOptions) {
-            marker.setOptions({
-              strokeWeight: 2,
-              fillOpacity: 0.7,
-            });
-          }
-        } catch(e) {}
+        marker.setStyle({
+          weight: 2,
+          opacity: 0.8,
+          fillOpacity: 0.7,
+        });
       }
     });
-  }, [selectedCellId, mapLoaded]);
+  }, [selectedCellId]);
 
   return (
     <div className="interactive-map-container">
-      <div id="map" ref={containerRef} className="mappls-map" />
+      <div id="map" className="leaflet-map" />
       <style jsx>{`
         .interactive-map-container {
           width: 100%;
@@ -156,7 +154,7 @@ export function InteractiveMap({
           box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         }
 
-        .mappls-map {
+        .leaflet-map {
           width: 100%;
           height: 500px;
         }
@@ -174,6 +172,15 @@ export function InteractiveMap({
         :global(.popup-content p) {
           margin: 2px 0;
           color: #475569;
+        }
+
+        :global(.leaflet-popup-content-wrapper) {
+          border-radius: 6px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        :global(.leaflet-popup-tip) {
+          background: white;
         }
       `}</style>
     </div>
