@@ -139,6 +139,11 @@ def forecast(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, object
     return payload
 
 
+@app.get("/api/model-evidence")
+def model_evidence() -> dict[str, object]:
+    return get_store().model_evidence()
+
+
 @app.post("/api/copilot", response_model=CopilotResponse)
 async def copilot(request: CopilotRequest, response: Response) -> dict[str, object]:
     response.headers["Cache-Control"] = "no-store"

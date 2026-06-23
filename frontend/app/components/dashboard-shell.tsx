@@ -28,15 +28,14 @@ const HotspotMap = dynamic(
   { ssr: false }
 );
 
-const InteractiveMap = dynamic(
-  () => import("./interactive-map").then((mod) => mod.InteractiveMap),
-  { ssr: false }
-);
-
 const PatrolPlanner = dynamic(
   () => import("./patrol-planner").then((mod) => mod.PatrolPlanner),
   { ssr: false }
 );
+
+type TopTab = "overview" | "spatial" | "forecastOps" | "report";
+type SpatialSubtab = "scatter" | "interactive" | "heatmap" | "network";
+type ForecastSubtab = "forecast" | "planner" | "impact";
 
 type DashboardShellProps = {
   summary: Summary;
@@ -57,9 +56,9 @@ export function DashboardShell({
   heatmap,
   forecast
 }: DashboardShellProps) {
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "map" | "interactive" | "heatmap" | "forecast" | "planner" | "impact" | "report"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<TopTab>("overview");
+  const [activeSpatialSubtab, setActiveSpatialSubtab] = useState<SpatialSubtab>("scatter");
+  const [activeForecastSubtab, setActiveForecastSubtab] = useState<ForecastSubtab>("forecast");
   const [stationFilter, setStationFilter] = useState("All stations");
   const [confidenceFilter, setConfidenceFilter] = useState("All confidence");
   const [violationTypeFilter, setViolationTypeFilter] = useState("All violations");
@@ -168,6 +167,11 @@ export function DashboardShell({
     }),
     [confidenceFilter, hourFilter, stationFilter, violationTypeFilter, weekdayFilter]
   );
+  const copilotContext = useMemo(() => {
+    if (activeTab === "spatial") return `Spatial Analysis: ${activeSpatialSubtab}`;
+    if (activeTab === "forecastOps") return `Forecast & Operations: ${activeForecastSubtab}`;
+    return activeTab;
+  }, [activeForecastSubtab, activeSpatialSubtab, activeTab]);
 
   const exportPriorityCsv = () => {
     const header = [
@@ -235,23 +239,16 @@ export function DashboardShell({
 
       <MetricCards summary={summary} stations={stations} hotspots={filteredHotspots} />
 
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+      <Box className="dashboard-tabs" sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
         <Tabs value={activeTab} onChange={(e, val) => setActiveTab(val)} aria-label="Dashboard tabs">
           <Tab value="overview" label="Overview" />
-          <Tab value="map" label="Scatter Map" />
-          <Tab value="interactive" label="Interactive Map" />
-          <Tab value="heatmap" label="Heatmap View" />
-          <Tab value="forecast" label="Forecast" />
-          <Tab value="planner" label="Patrol Planner" />
-          <Tab value="impact" label="Traffic Impact" />
+          <Tab value="spatial" label="Spatial Analysis" />
+          <Tab value="forecastOps" label="Forecast & Operations" />
           <Tab value="report" label="Report" />
         </Tabs>
       </Box>
 
-      {activeTab === "forecast" && <ForecastPanel forecast={forecast} />}
-
-      {(activeTab === "overview" || activeTab === "map" || activeTab === "interactive" || activeTab === "heatmap" || activeTab === "planner" || activeTab === "impact" || activeTab === "report") && (
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4, alignItems: 'center', p: 2, bgcolor: 'background.paper', borderRadius: 2 }}>
+      <Box className="filter-panel" sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4, alignItems: 'center', p: 2 }}>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Police station</InputLabel>
             <Select
@@ -330,13 +327,48 @@ export function DashboardShell({
           <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600 }}>
             {filteredHotspots.length.toLocaleString("en-IN")} matching hotspots
           </Typography>
+      </Box>
+
+      {activeTab === "spatial" && (
+        <Box className="subtab-row" sx={{ mb: 3 }}>
+          <Tabs
+            value={activeSpatialSubtab}
+            onChange={(event, value) => setActiveSpatialSubtab(value)}
+            aria-label="Spatial analysis views"
+            variant="scrollable"
+            allowScrollButtonsMobile
+          >
+            <Tab value="scatter" label="Hotspot Scatter" />
+            <Tab value="interactive" label="Interactive Map" />
+            <Tab value="heatmap" label="Risk Heatmap" />
+            <Tab value="network" label="Network Graph" />
+          </Tabs>
         </Box>
       )}
 
-      {activeTab === "impact" && (
+      {activeTab === "forecastOps" && (
+        <Box className="subtab-row" sx={{ mb: 3 }}>
+          <Tabs
+            value={activeForecastSubtab}
+            onChange={(event, value) => setActiveForecastSubtab(value)}
+            aria-label="Forecast and operations views"
+            variant="scrollable"
+            allowScrollButtonsMobile
+          >
+            <Tab value="forecast" label="Forecast" />
+            <Tab value="planner" label="Patrol Planner" />
+            <Tab value="impact" label="Traffic Impact" />
+          </Tabs>
+        </Box>
+      )}
+
+      {activeTab === "forecastOps" && activeForecastSubtab === "forecast" && (
+        <ForecastPanel forecast={forecast} />
+      )}
+      {activeTab === "forecastOps" && activeForecastSubtab === "impact" && (
         <ImpactScenarioPanel hotspots={filteredHotspots} allHotspots={hotspots} forecast={forecast} />
       )}
-      {activeTab === "planner" && (
+      {activeTab === "forecastOps" && activeForecastSubtab === "planner" && (
         <PatrolPlanner hotspots={filteredHotspots} forecast={forecast} />
       )}
       {activeTab === "report" && (
@@ -349,40 +381,54 @@ export function DashboardShell({
         />
       )}
 
-      {activeTab === "interactive" && (
+      {activeTab === "spatial" && activeSpatialSubtab === "interactive" && (
         <section className="dashboard-grid">
           <div style={{ gridColumn: '1 / -1' }}>
-            <InteractiveMap
+            <HotspotMap
+              mode="interactive"
               hotspots={filteredHotspots}
               selectedCellId={selectedCellId}
               onSelect={setSelectedCellId}
             />
           </div>
-          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} />
+          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} onSelect={setSelectedCellId} />
         </section>
       )}
 
-      {activeTab === "heatmap" && (
+      {activeTab === "spatial" && activeSpatialSubtab === "heatmap" && (
         <section className="dashboard-grid">
           <div style={{ gridColumn: '1 / -1' }}>
             <HeatmapLayer
               hotspots={filteredHotspots}
               selectedCellId={selectedCellId}
+              onSelect={setSelectedCellId}
               title="Risk Heatmap - Color Intensity Shows Risk"
             />
           </div>
-          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} />
+          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} onSelect={setSelectedCellId} />
         </section>
       )}
 
-      {activeTab === "map" && (
+      {activeTab === "spatial" && activeSpatialSubtab === "scatter" && (
         <section className="dashboard-grid">
           <HotspotMap
+            mode="scatter"
             hotspots={filteredHotspots}
             selectedCellId={selectedCellId}
             onSelect={setSelectedCellId}
           />
-          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} />
+          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} onSelect={setSelectedCellId} />
+        </section>
+      )}
+
+      {activeTab === "spatial" && activeSpatialSubtab === "network" && (
+        <section className="dashboard-grid">
+          <RankedHotspotTable
+            hotspots={filteredHotspots}
+            selectedCellId={selectedCellId}
+            onSelect={setSelectedCellId}
+          />
+          <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} onSelect={setSelectedCellId} />
         </section>
       )}
 
@@ -394,13 +440,13 @@ export function DashboardShell({
             onSelect={setSelectedCellId}
           />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
-            <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} />
+            <HotspotDetailPanel hotspot={selectedHotspot} scoreBenchmarks={scoreBenchmarks} onSelect={setSelectedCellId} />
             <TemporalHeatmap hourly={hourly} weekday={weekday} heatmap={heatmap} />
           </div>
         </section>
       )}
       <AnalystCopilot
-        activeTab={activeTab}
+        activeTab={copilotContext}
         selectedCellId={selectedCellId}
         filters={copilotFilters}
       />

@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { hotspotContext, hotspotName } from "../lib/hotspot-labels";
-import type { GraphResponse, Hotspot, TimeseriesPoint } from "../lib/types";
+import type { GraphResponse, Hotspot, TimeseriesPoint, WeeklyTimeseriesPoint } from "../lib/types";
 
 type DetailState =
-  | { status: "idle"; timeseries: TimeseriesPoint[]; graph: GraphResponse | null }
-  | { status: "loading"; timeseries: TimeseriesPoint[]; graph: GraphResponse | null }
-  | { status: "ready"; timeseries: TimeseriesPoint[]; graph: GraphResponse }
-  | { status: "error"; timeseries: TimeseriesPoint[]; graph: GraphResponse | null };
+  | { status: "idle"; timeseries: TimeseriesPoint[]; weekly: WeeklyTimeseriesPoint[]; graph: GraphResponse | null }
+  | { status: "loading"; timeseries: TimeseriesPoint[]; weekly: WeeklyTimeseriesPoint[]; graph: GraphResponse | null }
+  | { status: "ready"; timeseries: TimeseriesPoint[]; weekly: WeeklyTimeseriesPoint[]; graph: GraphResponse }
+  | { status: "error"; timeseries: TimeseriesPoint[]; weekly: WeeklyTimeseriesPoint[]; graph: GraphResponse | null };
 
 type HotspotDetailPanelProps = {
   hotspot: Hotspot | null;
@@ -18,12 +18,14 @@ type HotspotDetailPanelProps = {
     maxDeviceDays: number;
     maxNeighborInfluence: number;
   };
+  onSelect?: (cellId: string) => void;
 };
 
-export function HotspotDetailPanel({ hotspot, scoreBenchmarks }: HotspotDetailPanelProps) {
+export function HotspotDetailPanel({ hotspot, scoreBenchmarks, onSelect }: HotspotDetailPanelProps) {
   const [detail, setDetail] = useState<DetailState>({
     status: "idle",
     timeseries: [],
+    weekly: [],
     graph: null
   });
   const [showScoreBreakdown, setShowScoreBreakdown] = useState(false);
@@ -41,14 +43,18 @@ export function HotspotDetailPanel({ hotspot, scoreBenchmarks }: HotspotDetailPa
         if (!response.ok) throw new Error("Timeseries request failed");
         return response.json() as Promise<TimeseriesPoint[]>;
       }),
+      fetch(`/api/backend/timeseries/${hotspot.grid_cell_id}/weekly`).then((response) => {
+        if (!response.ok) throw new Error("Weekly timeseries request failed");
+        return response.json() as Promise<WeeklyTimeseriesPoint[]>;
+      }),
       fetch(`/api/backend/graph/${hotspot.grid_cell_id}`).then((response) => {
         if (!response.ok) throw new Error("Graph request failed");
         return response.json() as Promise<GraphResponse>;
       })
     ])
-      .then(([timeseries, graph]) => {
+      .then(([timeseries, weekly, graph]) => {
         if (active) {
-          setDetail({ status: "ready", timeseries, graph });
+          setDetail({ status: "ready", timeseries, weekly, graph });
         }
       })
       .catch(() => {
@@ -73,6 +79,8 @@ export function HotspotDetailPanel({ hotspot, scoreBenchmarks }: HotspotDetailPa
 
   const maxSeries = Math.max(...detail.timeseries.map((item) => item.violation_count), 1);
   const trendPath = buildTrendPath(detail.timeseries.slice(-60));
+  const weeklyPath = buildWeeklyPath(detail.weekly.slice(-16));
+  const maxWeekly = Math.max(...detail.weekly.map((item) => item.violation_count), 1);
   const scoreBreakdown = buildScoreBreakdown(hotspot, scoreBenchmarks);
 
   return (
@@ -213,8 +221,33 @@ export function HotspotDetailPanel({ hotspot, scoreBenchmarks }: HotspotDetailPa
       </section>
 
       <section className="mini-section">
+        <h3>Weekly pressure evidence</h3>
+        <div className="chart-legend" aria-label="Weekly trend chart legend">
+          <span><i className="legend-swatch predicted" />Weekly observed violations</span>
+          <span><i className="legend-swatch area" />Last 16-week evidence</span>
+        </div>
+        <svg className="trend-chart" viewBox="0 0 320 120" role="img" aria-label="Weekly observed violation trend chart">
+          <path className="trend-area" d={`${weeklyPath} L 320 116 L 0 116 Z`} />
+          <path className="trend-line weekly" d={weeklyPath} />
+          {detail.weekly.slice(-16).map((point, index, points) => {
+            const x = points.length <= 1 ? 0 : (index / (points.length - 1)) * 320;
+            const y = 112 - (point.violation_count / maxWeekly) * 96;
+            return (
+              <circle key={point.week} cx={x} cy={y} r="3">
+                <title>{`${point.week}: ${point.violation_count} violations`}</title>
+              </circle>
+            );
+          })}
+        </svg>
+        <p>
+          Weekly recurrence supports the forecast-priority story; it is observed
+          violation pressure, not measured congestion.
+        </p>
+      </section>
+
+      <section className="mini-section">
         <h3>Graph neighborhood</h3>
-        <NeighborhoodGraph graph={detail.graph} selectedCellId={hotspot.grid_cell_id} />
+        <NeighborhoodGraph graph={detail.graph} selectedCellId={hotspot.grid_cell_id} onSelect={onSelect} />
         <p>
           {detail.graph?.neighbors.length ?? 0} nearby grid cells within the precomputed
           graph. Neighbor influence is derived only from dataset coordinates.
@@ -225,6 +258,21 @@ export function HotspotDetailPanel({ hotspot, scoreBenchmarks }: HotspotDetailPa
 }
 
 function buildTrendPath(points: TimeseriesPoint[]) {
+  if (!points.length) {
+    return "M 0 116";
+  }
+
+  const maxValue = Math.max(...points.map((point) => point.violation_count), 1);
+  return points
+    .map((point, index) => {
+      const x = points.length <= 1 ? 0 : (index / (points.length - 1)) * 320;
+      const y = 112 - (point.violation_count / maxValue) * 96;
+      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function buildWeeklyPath(points: WeeklyTimeseriesPoint[]) {
   if (!points.length) {
     return "M 0 116";
   }
@@ -296,12 +344,20 @@ function scale(value: number, maximum: number) {
 
 function NeighborhoodGraph({
   graph,
-  selectedCellId
+  selectedCellId,
+  onSelect
 }: {
   graph: GraphResponse | null;
   selectedCellId: string;
+  onSelect?: (cellId: string) => void;
 }) {
   const neighbors = graph?.neighbors.slice(0, 10) ?? [];
+  const edgeLookup = new Map(
+    (graph?.edges ?? []).map((edge) => [
+      edge.source === selectedCellId ? edge.target : edge.source,
+      edge,
+    ])
+  );
   const center = { x: 160, y: 100 };
   const radius = 72;
 
@@ -318,7 +374,12 @@ function NeighborhoodGraph({
             y1={center.y}
             x2={x}
             y2={y}
-          />
+            strokeWidth={1 + Math.min((edgeLookup.get(neighbor.grid_cell_id)?.weight ?? 1) * 2, 5)}
+          >
+            <title>
+              {`${hotspotName(neighbor)} edge weight ${(edgeLookup.get(neighbor.grid_cell_id)?.weight ?? 0).toFixed(2)}`}
+            </title>
+          </line>
         );
       })}
       {neighbors.map((neighbor, index) => {
@@ -326,16 +387,24 @@ function NeighborhoodGraph({
         const x = center.x + Math.cos(angle) * radius;
         const y = center.y + Math.sin(angle) * radius;
         const r = 7 + Math.min(neighbor.violation_count / 300, 12);
+        const fill =
+          neighbor.obstruction_risk_score >= 70
+            ? "#f43f5e"
+            : neighbor.obstruction_risk_score >= 55
+              ? "#f59e0b"
+              : "#14b8a6";
         return (
           <circle
             key={neighbor.grid_cell_id}
             cx={x}
             cy={y}
             r={r}
-            fill={neighbor.obstruction_risk_score >= 55 ? "#d88a17" : "#12a5a3"}
+            fill={fill}
+            onClick={() => onSelect?.(neighbor.grid_cell_id)}
+            style={{ cursor: onSelect ? 'pointer' : 'default' }}
           >
             <title>
-              {`${hotspotName(neighbor)}: ${neighbor.obstruction_risk_score} score`}
+              {`${hotspotName(neighbor)}: risk ${neighbor.obstruction_risk_score.toFixed(1)}, violations ${neighbor.violation_count}`}
             </title>
           </circle>
         );

@@ -358,6 +358,69 @@ select {
   box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
 }
 
+.dashboard-tabs,
+.subtab-row,
+.filter-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  box-shadow: var(--shadow-soft);
+}
+
+.dashboard-tabs .MuiTabs-indicator,
+.subtab-row .MuiTabs-indicator {
+  background-color: var(--teal);
+}
+
+.dashboard-tabs .MuiTab-root,
+.subtab-row .MuiTab-root {
+  min-height: 44px;
+  color: var(--muted);
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.dashboard-tabs .Mui-selected,
+.subtab-row .Mui-selected {
+  color: var(--text) !important;
+}
+
+.filter-panel .MuiInputBase-root,
+.filter-panel .MuiInputLabel-root,
+.filter-panel .MuiSelect-icon {
+  color: var(--text);
+}
+
+.filter-panel .MuiOutlinedInput-notchedOutline {
+  border-color: var(--line);
+}
+
+.map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0 0 14px;
+}
+
+.map-controls label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.map-controls select {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.64);
+  color: var(--text);
+  font-weight: 700;
+}
+
 .filter-panel strong {
   justify-self: end;
   color: var(--blue-dark);
@@ -679,6 +742,11 @@ select {
   background: linear-gradient(180deg, var(--teal), var(--blue));
 }
 
+.hour-bars span.selected {
+  background: linear-gradient(180deg, var(--coral), var(--amber));
+  box-shadow: 0 0 0 2px rgba(248, 250, 252, 0.34);
+}
+
 .trend-chart,
 .network-chart {
   width: 100%;
@@ -699,6 +767,10 @@ select {
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 4;
+}
+
+.trend-line.weekly {
+  stroke: var(--coral);
 }
 
 .trend-area {
@@ -869,12 +941,31 @@ tbody tr:hover,
   text-align: right;
 }
 
-.heatmap-row i {
+.heatmap-row i,
+.heatmap-row button {
   display: block;
   aspect-ratio: 1;
   min-height: 9px;
   border-radius: 3px;
   background: linear-gradient(135deg, var(--blue), var(--teal));
+}
+
+.heatmap-row button {
+  width: 100%;
+  padding: 0;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.heatmap-row button:hover,
+.heatmap-row button.selected {
+  border-color: rgba(248, 250, 252, 0.72);
+  box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.22);
+  opacity: 1 !important;
+}
+
+.heatmap-row button.peak {
+  background: linear-gradient(135deg, var(--amber), var(--coral));
 }
 
 .chart-legend,
@@ -924,6 +1015,11 @@ tbody tr:hover,
   height: 8px;
   border-radius: 999px;
   background: linear-gradient(90deg, rgba(59, 130, 246, 0.18), var(--blue), var(--teal));
+}
+
+.heatmap-legend strong {
+  color: var(--text);
+  font-size: 0.78rem;
 }
 
 .methodology-page {
@@ -1075,7 +1171,8 @@ tbody tr:hover,
 
 .forecast-chart {
   width: 100%;
-  height: auto;
+  min-height: 260px;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background:
@@ -1085,23 +1182,21 @@ tbody tr:hover,
   background-size: 42px 36px;
 }
 
-.forecast-chart path {
-  fill: none;
-  stroke: var(--blue);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 4;
+.model-evidence-panel {
+  grid-column: 1 / -1;
 }
 
-.forecast-chart circle {
-  fill: var(--teal-dark);
-  stroke: #fff;
-  stroke-width: 2;
-}
-
-.forecast-chart circle.predicted {
-  fill: var(--coral);
-  stroke: var(--ink);
+.model-evidence-json {
+  max-height: 260px;
+  overflow: auto;
+  margin: 14px 0 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.62);
+  color: var(--teal);
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .forecast-detail-list {

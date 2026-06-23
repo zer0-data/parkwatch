@@ -226,6 +226,7 @@ export function ImpactScenarioPanel({ hotspots, allHotspots, forecast }: ImpactS
                 <th>Traffic delay</th>
                 <th>Delay exposure</th>
                 <th>Scenario reduced</th>
+                <th>Confidence</th>
                 <th>Source</th>
               </tr>
             </thead>
@@ -243,6 +244,12 @@ export function ImpactScenarioPanel({ hotspots, allHotspots, forecast }: ImpactS
                   <td>{item.traffic_delay_minutes.toFixed(1)}</td>
                   <td>{Math.round(item.estimated_delay_exposure_minutes).toLocaleString("en-IN")}</td>
                   <td>{Math.round(item.reduced_delay_exposure_minutes).toLocaleString("en-IN")}</td>
+                  <td>
+                    {item.confidence}
+                    <span className="cell-meta">
+                      road {item.road_importance_weight.toFixed(2)} | pressure {item.parking_pressure_weight.toFixed(2)}
+                    </span>
+                  </td>
                   <td>{item.source}</td>
                 </tr>
               ))}

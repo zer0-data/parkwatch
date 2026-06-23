@@ -1,3 +1,6 @@
+ "use client";
+
+import { useMemo, useState } from "react";
 import type { HeatmapPoint, TemporalHour, TemporalWeekday } from "../lib/types";
 
 type TemporalHeatmapProps = {
@@ -9,12 +12,22 @@ type TemporalHeatmapProps = {
 const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapProps) {
+  const [selectedSlot, setSelectedSlot] = useState<HeatmapPoint | null>(null);
   const maxHeatmap = Math.max(...heatmap.map((item) => item.violation_count), 1);
   const maxHourly = Math.max(...hourly.map((item) => item.violation_count), 1);
   const weekdayTotals = new Map(weekday.map((item) => [item.weekday, item.violation_count]));
   const heatmapLookup = new Map(
     heatmap.map((item) => [`${item.weekday}-${item.hour}`, item.violation_count])
   );
+  const peakSlot = useMemo(
+    () =>
+      heatmap.reduce<HeatmapPoint | null>(
+        (peak, item) => (!peak || item.violation_count > peak.violation_count ? item : peak),
+        null
+      ),
+    [heatmap]
+  );
+  const selected = selectedSlot ?? peakSlot;
 
   return (
     <section className="panel temporal-panel">
@@ -22,6 +35,13 @@ export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapPro
         <div>
           <p className="eyebrow">Temporal patterns</p>
           <h2>When should enforcement happen?</h2>
+          {selected && (
+            <span className="cell-meta">
+              Focus: {selected.weekday} {selected.hour.toString().padStart(2, "0")}:00,
+              {" "}
+              {selected.violation_count.toLocaleString("en-IN")} violations
+            </span>
+          )}
         </div>
       </div>
 
@@ -29,6 +49,7 @@ export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapPro
         {hourly.map((item) => (
           <span
             key={item.hour}
+            className={selected?.hour === item.hour ? "selected" : ""}
             style={{ height: `${8 + (item.violation_count / maxHourly) * 72}px` }}
             title={`${item.hour}:00 - ${item.violation_count.toLocaleString("en-IN")} violations`}
           />
@@ -48,12 +69,18 @@ export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapPro
             <span>{day.slice(0, 3)}</span>
             {Array.from({ length: 24 }, (_, hour) => {
               const count = heatmapLookup.get(`${day}-${hour}`) ?? 0;
-              const opacity = 0.16 + (count / maxHeatmap) * 0.84;
+              const isSelected = selected?.weekday === day && selected.hour === hour;
+              const isPeak = peakSlot?.weekday === day && peakSlot.hour === hour;
+              const opacity = 0.18 + (count / maxHeatmap) * 0.82;
               return (
-                <i
+                <button
                   key={hour}
+                  className={`${isSelected ? "selected" : ""} ${isPeak ? "peak" : ""}`}
                   style={{ opacity }}
                   title={`${day} ${hour}:00 - ${count.toLocaleString("en-IN")} violations`}
+                  type="button"
+                  onClick={() => setSelectedSlot({ weekday: day, hour, violation_count: count })}
+                  aria-label={`${day} ${hour}:00 has ${count} violations`}
                 />
               );
             })}
@@ -65,6 +92,7 @@ export function TemporalHeatmap({ hourly, weekday, heatmap }: TemporalHeatmapPro
         <span>Lower violations</span>
         <i />
         <span>Higher violations</span>
+        {peakSlot && <strong>Peak: {peakSlot.weekday.slice(0, 3)} {peakSlot.hour}:00</strong>}
       </div>
     </section>
   );

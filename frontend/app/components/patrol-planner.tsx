@@ -298,28 +298,45 @@ export function PatrolPlanner({ hotspots, forecast }: PatrolPlannerProps) {
                 <th>Priority</th>
                 <th>Risk</th>
                 <th>Peak window</th>
+                <th>Segment source</th>
               </tr>
             </thead>
             <tbody>
-              {displayStops.map((item, index) => (
-                <tr key={item.grid_cell_id}>
-                  <td>
-                    <span className="patrol-stop-badge">{index + 1}</span>
-                  </td>
-                  <td>
-                    <strong className="location-name">{item.location}</strong>
-                    <span className="cell-meta">{item.context}</span>
-                    {item.nearby_context.length > 0 && (
-                      <span className="cell-meta">{item.nearby_context.join(" | ")}</span>
-                    )}
-                  </td>
-                  <td>{item.station ?? "Unknown"}</td>
-                  <td>{item.predicted_violations.toFixed(1)}</td>
-                  <td>{item.forecast_priority.toFixed(1)}</td>
-                  <td>{item.obstruction_risk.toFixed(1)}</td>
-                  <td>{item.peak_window ?? "Unknown"}</td>
-                </tr>
-              ))}
+              {displayStops.map((item, index) => {
+                const segment = index === 0 ? null : roadPlan?.segments[index - 1] ?? null;
+                return (
+                  <tr key={item.grid_cell_id}>
+                    <td>
+                      <span className="patrol-stop-badge">{index + 1}</span>
+                    </td>
+                    <td>
+                      <strong className="location-name">{item.location}</strong>
+                      <span className="cell-meta">{item.context}</span>
+                      {item.nearby_context.length > 0 && (
+                        <span className="cell-meta">{item.nearby_context.join(" | ")}</span>
+                      )}
+                    </td>
+                    <td>{item.station ?? "Unknown"}</td>
+                    <td>{item.predicted_violations.toFixed(1)}</td>
+                    <td>{item.forecast_priority.toFixed(1)}</td>
+                    <td>{item.obstruction_risk.toFixed(1)}</td>
+                    <td>{item.peak_window ?? "Unknown"}</td>
+                    <td>
+                      {segment ? (
+                        <>
+                          {segment.source}
+                          <span className="cell-meta">
+                            {segment.distance_km.toFixed(2)} km
+                            {segment.eta_minutes !== null ? ` | ${segment.eta_minutes.toFixed(1)} min` : ""}
+                          </span>
+                        </>
+                      ) : (
+                        "Start"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

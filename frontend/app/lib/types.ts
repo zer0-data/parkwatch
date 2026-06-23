@@ -77,6 +77,11 @@ export type TimeseriesPoint = {
   violation_count: number;
 };
 
+export type WeeklyTimeseriesPoint = {
+  week: string;
+  violation_count: number;
+};
+
 export type GraphEdge = {
   source: string;
   target: string;
@@ -130,6 +135,16 @@ export type ForecastResponse = {
     validation_type?: string;
   };
   items: ForecastItem[];
+};
+
+export type ModelEvidence = {
+  available: boolean;
+  comparison: unknown | null;
+  active_model: string | null;
+  forecast_source: string | null;
+  forecast_week: string | null;
+  holdout: ForecastResponse["holdout"];
+  note: string;
 };
 
 export type CopilotFilters = {

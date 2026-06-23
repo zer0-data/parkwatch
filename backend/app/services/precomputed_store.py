@@ -20,6 +20,7 @@ class PrecomputedStore:
         self.hotspots_by_id = {
             hotspot["grid_cell_id"]: hotspot for hotspot in self.hotspots
         }
+        self.model_comparison = self._load_optional_json("model_comparison.json")
         self.forecast_source, self.forecast = self._load_forecast()
         self.weekly_timeseries: dict[str, list[dict[str, Any]]] = self._load_json(
             "weekly_timeseries.json"
@@ -167,6 +168,20 @@ class PrecomputedStore:
 
     def stations(self) -> list[dict[str, Any]]:
         return self._stations
+
+    def model_evidence(self) -> dict[str, Any]:
+        return {
+            "available": self.model_comparison is not None,
+            "comparison": self.model_comparison,
+            "active_model": self.forecast.get("model"),
+            "forecast_source": self.forecast_source,
+            "forecast_week": self.forecast.get("forecast_week"),
+            "holdout": self.forecast.get("holdout", {}),
+            "note": (
+                "Forecasts estimate future observed parking-violation pressure, "
+                "not measured congestion or verified public-delay reduction."
+            ),
+        }
 
     def _build_stations(self) -> list[dict[str, Any]]:
         grouped: dict[str, dict[str, Any]] = {}

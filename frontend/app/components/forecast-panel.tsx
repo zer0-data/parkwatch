@@ -1,7 +1,18 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { ForecastItem, ForecastResponse } from "../lib/types";
+import {
+  Area,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis
+} from "recharts";
+import type { ForecastItem, ForecastResponse, ModelEvidence } from "../lib/types";
 import { forecastHotspotContext, forecastHotspotName } from "../lib/hotspot-labels";
 
 type ForecastPanelProps = {
@@ -9,6 +20,7 @@ type ForecastPanelProps = {
 };
 
 export function ForecastPanel({ forecast }: ForecastPanelProps) {
+  const [modelEvidence, setModelEvidence] = useState<ModelEvidence | null>(null);
   const topItem = forecast.items[0] ?? null;
   const modelLabel = forecast.model ? `${forecast.model} forecast` : "Graph-enhanced forecast";
   const highConfidenceCount = forecast.items.filter((item) => displayConfidence(item) === "High").length;
@@ -25,6 +37,21 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
   const risingForecasts = forecast.items.filter(
     (item) => item.last_4_week_avg > 0 && item.last_1_week_count / item.last_4_week_avg >= 1.2
   ).length;
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/backend/model-evidence", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((payload: ModelEvidence | null) => {
+        if (active) setModelEvidence(payload);
+      })
+      .catch(() => {
+        if (active) setModelEvidence(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   const exportForecastCsv = () => {
     const header = [
       "rank",
@@ -127,6 +154,48 @@ export function ForecastPanel({ forecast }: ForecastPanelProps) {
         {topItem && <ForecastChart item={topItem} />}
       </div>
 
+      <div className="panel model-evidence-panel">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Model evidence</p>
+            <h2>Forecast artifact and validation</h2>
+          </div>
+          <span className="pill">{modelEvidence?.forecast_source ?? forecast.forecast_source ?? "forecast artifact"}</span>
+        </div>
+        <div className="forecast-metrics secondary">
+          <span>
+            <strong>{modelEvidence?.active_model ?? forecast.model ?? "Model"}</strong>
+            Active model
+          </span>
+          <span>
+            <strong>{modelEvidence?.holdout.mae?.toFixed(2) ?? forecast.holdout.mae?.toFixed(2) ?? "n/a"}</strong>
+            Holdout MAE
+          </span>
+          <span>
+            <strong>{modelEvidence?.holdout.mape?.toFixed(1) ?? forecast.holdout.mape?.toFixed(1) ?? "n/a"}%</strong>
+            Holdout MAPE
+          </span>
+          <span>
+            <strong>{modelEvidence?.holdout.validation_type ?? forecast.holdout.validation_type ?? "artifact"}</strong>
+            Validation
+          </span>
+        </div>
+        <p className="muted">
+          {modelEvidence?.note ??
+            "Forecasts estimate observed violation pressure; they do not measure congestion or verified delay reduction."}
+        </p>
+        {modelEvidence?.available ? (
+          <pre className="model-evidence-json">
+            {JSON.stringify(modelEvidence.comparison, null, 2).slice(0, 1600)}
+          </pre>
+        ) : (
+          <p className="muted">
+            No model_comparison.json artifact is available in the processed data directory.
+            The dashboard is showing the active forecast artifact only.
+          </p>
+        )}
+      </div>
+
       <div className="panel forecast-table-panel">
         <div className="section-heading">
           <div>
@@ -204,47 +273,47 @@ function ForecastChart({ item }: { item: ForecastItem }) {
     ...item.historical_weeks.map((week) => ({
       label: week.week,
       value: week.violation_count,
+      low: week.violation_count,
+      high: week.violation_count,
       predicted: false
     })),
     {
       label: item.predicted_week ?? "Predicted",
       value: item.predicted_violation_count,
+      low: item.prediction_interval_low,
+      high: item.prediction_interval_high,
       predicted: true
     }
   ];
-  const maxValue = Math.max(...points.map((point) => point.value), 1);
-  const path = points
-    .map((point, index) => {
-      const x = points.length <= 1 ? 0 : (index / (points.length - 1)) * 420;
-      const y = 160 - (point.value / maxValue) * 132;
-      return `${index === 0 ? "M" : "L"} ${x.toFixed(2)} ${y.toFixed(2)}`;
-    })
-    .join(" ");
 
   return (
     <>
       <div className="chart-legend" aria-label="Forecast chart legend">
         <span><i className="legend-swatch line" />Historical weekly violations</span>
+        <span><i className="legend-swatch area" />Prediction interval</span>
         <span><i className="legend-swatch predicted" />Predicted week center</span>
       </div>
-      <svg className="forecast-chart" viewBox="0 0 420 180" role="img" aria-label="Historical versus predicted weekly violations">
-        <path d={path} />
-        {points.map((point, index) => {
-          const x = points.length <= 1 ? 0 : (index / (points.length - 1)) * 420;
-          const y = 160 - (point.value / maxValue) * 132;
-          return (
-            <circle
-              key={`${point.label}-${index}`}
-              className={point.predicted ? "predicted" : ""}
-              cx={x}
-              cy={y}
-              r={point.predicted ? 6 : 4}
-            >
-              <title>{`${point.label}: ${point.value.toFixed(1)} violations`}</title>
-            </circle>
-          );
-        })}
-      </svg>
+      <div className="forecast-chart">
+        <ResponsiveContainer width="100%" height={260}>
+          <ComposedChart data={points} margin={{ top: 16, right: 18, bottom: 8, left: 0 }}>
+            <CartesianGrid stroke="rgba(148, 163, 184, 0.18)" />
+            <XAxis dataKey="label" stroke="#94a3b8" tick={{ fontSize: 11 }} />
+            <YAxis stroke="#94a3b8" tick={{ fontSize: 11 }} width={38} />
+            <Tooltip
+              contentStyle={{
+                background: "#020617",
+                border: "1px solid rgba(148, 163, 184, 0.28)",
+                borderRadius: "8px",
+                color: "#e2e8f0"
+              }}
+              formatter={(value: number, name: string) => [value.toFixed(1), name]}
+            />
+            <Area type="monotone" dataKey="high" stroke="none" fill="rgba(59, 130, 246, 0.14)" />
+            <Area type="monotone" dataKey="low" stroke="none" fill="rgba(2, 6, 23, 0.72)" />
+            <Line type="monotone" dataKey="value" name="violations" stroke="#2dd4bf" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
       <dl className="forecast-detail-list">
         <div>
           <dt>Predicted count range</dt>
