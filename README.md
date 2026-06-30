@@ -4,7 +4,7 @@ ParkWatch is an AI-powered parking enforcement intelligence prototype for Bengal
 
 ## Live Demo
 
-Current hosted URL: `https://northwest-verse-experiencing-anybody.trycloudflare.com`
+Current hosted URL: `https://vista-adams-inside-super.trycloudflare.com`
 
 Demo Video: `https://drive.google.com/file/d/1CgVTIzaoDWYEquHUsFABdVe7SFGC74H0/view?usp=sharing`
 
